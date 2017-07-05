@@ -1,7 +1,7 @@
 
 #include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
+//#include <stdio.h>
+//#include <stdlib.h>
 
 #ifndef _EXTERN_C_
 #ifdef __cplusplus
@@ -32,6 +32,8 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 #define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #include <cxxabi.h>
+#include <cstdio>
+#include <cstdlib>
 
 // For fprintf logging
 FILE* logfile_ptr;
@@ -54,13 +56,20 @@ void backtrace() {
     if (pc == 0) {
       break;
     }
-    fprintf(logfile_ptr, "0x%lx:", pc);
+    std::fprintf(logfile_ptr, "0x%lx:", pc);
 
     char sym[256];
     if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0) {
-      fprintf(logfile_ptr, " (%s+0x%lx)\n", sym, offset);
+      char* nameptr = sym;
+      int status;
+      char* demangled = abi::__cxa_demangle(sym, nullptr, nullptr, &status);
+      if (status == 0) {
+        nameptr = demangled;
+      }
+      std::fprintf(logfile_ptr, " (%s+0x%lx)\n", nameptr, offset);
+      std::free(demangled);
     } else {
-      fprintf(logfile_ptr, " -- error: unable to obtain symbol name for this frame\n");
+      std::fprintf(logfile_ptr, " -- error: unable to obtain symbol name for this frame\n");
     }
   }
 }
