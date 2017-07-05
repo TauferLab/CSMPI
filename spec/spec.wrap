@@ -1,0 +1,9 @@
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <cxxabi.h>
+
+{{fnall mpi_func }} 
+{
+  {{callfn}}
+}
+{{endfnall}}
