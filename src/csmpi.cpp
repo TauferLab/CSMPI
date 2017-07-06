@@ -34,10 +34,12 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 #include <cxxabi.h>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
+#include <sys/stat.h>
 
 // For fprintf logging
 FILE* logfile_ptr;
-int rank;
+int rank = -1;
 int send_idx = 0;
 int bsend_idx = 0;
 int rsend_idx = 0;
@@ -46,6 +48,33 @@ int isend_idx = 0;
 int ibsend_idx = 0;
 int irsend_idx = 0;
 int issend_idx = 0;
+
+// Sets up everything for logging
+#define CSMPI_ENV_NAME_DIR "CSMPI_DIR"
+void csmpi_init() {
+  // Get logfile dir path from environment var
+  std::string csmpi_logfile_dir_path;
+  char* env_var;
+  env_var = getenv(CSMPI_ENV_NAME_DIR);
+  if (NULL == env_var) {
+    printf("getenv failed, specify CSMPI_DIR\n");
+    exit(0);
+  } else {
+    csmpi_logfile_dir_path = env_var; 
+    mkdir(csmpi_logfile_dir_path.c_str(), S_IRWXU);
+  }
+  // Get rank
+  int my_rank, mpi_err;
+  mpi_err = PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+  if (mpi_err != MPI_SUCCESS) {
+    printf("MPI_Comm_rank failed during csmpi_init\n");
+    exit(0);
+  }
+  // Open logfile for this rank
+  std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string(my_rank) + ".log";
+  logfile_ptr = fopen(logfile_path.c_str(), "w");
+  fprintf(logfile_ptr, "Begin log for rank: %d\n", my_rank);
+}
 
 // Call this function to get a backtrace.
 void backtrace() {
@@ -437,16 +466,16 @@ _EXTERN_C_ int MPI_Comm_rank(MPI_Comm arg_0, int *arg_1) {
  
 {
   _wrap_py_return_val = PMPI_Comm_rank(arg_0, arg_1);
-  // Now that this process has a rank, 
-  // open a log file for it.
-  rank = *arg_1;
-  int buffer_size = 16;
-  int err;
-  char logfile_name[buffer_size];
-  err = snprintf(logfile_name, buffer_size, "rank_%d.log", rank);
-  logfile_ptr = fopen(logfile_name, "w");
-  // Begin log
-  fprintf(logfile_ptr, "Begin log for rank: %d\n", *arg_1);
+  //// Now that this process has a rank, 
+  //// open a log file for it.
+  //rank = *arg_1;
+  //int buffer_size = 16;
+  //int err;
+  //char logfile_name[buffer_size];
+  //err = snprintf(logfile_name, buffer_size, "rank_%d.log", rank);
+  //logfile_ptr = fopen(logfile_name, "w");
+  //// Begin log
+  //fprintf(logfile_ptr, "Begin log for rank: %d\n", *arg_1);
 }
     return _wrap_py_return_val;
 }
@@ -1590,6 +1619,7 @@ _EXTERN_C_ int MPI_Init(int *arg_0, char ***arg_1) {
  
 {
   _wrap_py_return_val = PMPI_Init(arg_0, arg_1);
+  csmpi_init();
 }
     return _wrap_py_return_val;
 }
