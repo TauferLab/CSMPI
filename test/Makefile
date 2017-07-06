@@ -1,10 +1,10 @@
 CC = mpicc
 CFLAGS = -g -Wall -std=c++11
 INCLUDE = 
-LDFLAGS = -L/g/g17/chapp1/callstack_mpi/build/lib
-LIBS = -lcallstack_mpi -lstdc++ -lunwind
+LDFLAGS = -L/g/g17/chapp1/csmpi/build/lib
+LIBS = -lcsmpi -lstdc++ -lunwind
 
-PMPI_MODULE = #/g/g17/chapp1/callstack_mpi/build/callstack_mpi.so
+PMPI_MODULE = #/g/g17/chapp1/csmpi/build/csmpi.so
 
 SRCS = nested_isend_templated.cpp
 OBJS = $(SRCS:.c=.o)
