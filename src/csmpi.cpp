@@ -63,13 +63,14 @@ void csmpi_init() {
     csmpi_logfile_dir_path = env_var; 
     mkdir(csmpi_logfile_dir_path.c_str(), S_IRWXU);
   }
-  // Get rank
+  // Get rank and set global rank variable
   int my_rank, mpi_err;
   mpi_err = PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
   if (mpi_err != MPI_SUCCESS) {
     printf("MPI_Comm_rank failed during csmpi_init\n");
     exit(0);
-  }
+  } 
+  rank = my_rank;
   // Open logfile for this rank
   std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string(my_rank) + ".log";
   logfile_ptr = fopen(logfile_path.c_str(), "w");
