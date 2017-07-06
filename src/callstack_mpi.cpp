@@ -38,7 +38,14 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 // For fprintf logging
 FILE* logfile_ptr;
 int rank;
+int send_idx = 0;
+int bsend_idx = 0;
+int rsend_idx = 0;
+int ssend_idx = 0;
 int isend_idx = 0;
+int ibsend_idx = 0;
+int irsend_idx = 0;
+int issend_idx = 0;
 
 // Call this function to get a backtrace.
 void backtrace() {
@@ -213,6 +220,14 @@ _EXTERN_C_ int MPI_Bsend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
  
 {
   _wrap_py_return_val = PMPI_Bsend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=bsend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, bsend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  bsend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1457,6 +1472,14 @@ _EXTERN_C_ int MPI_Ibsend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3,
  
 {
   _wrap_py_return_val = PMPI_Ibsend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=ibsend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, ibsend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  ibsend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1644,6 +1667,14 @@ _EXTERN_C_ int MPI_Irsend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3,
  
 {
   _wrap_py_return_val = PMPI_Irsend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=irsend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, irsend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  irsend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1654,8 +1685,15 @@ _EXTERN_C_ int MPI_Isend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
     int _wrap_py_return_val = 0;
  
 {
-  backtrace();
   _wrap_py_return_val = PMPI_Isend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=isend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, isend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  isend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1667,6 +1705,14 @@ _EXTERN_C_ int MPI_Issend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3,
  
 {
   _wrap_py_return_val = PMPI_Issend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=issend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, issend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  issend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1832,6 +1878,14 @@ _EXTERN_C_ int MPI_Rsend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
  
 {
   _wrap_py_return_val = PMPI_Rsend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=rsend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, rsend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  rsend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1887,6 +1941,14 @@ _EXTERN_C_ int MPI_Send(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, i
  
 {
   _wrap_py_return_val = PMPI_Send(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=send, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, send_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  send_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -1931,6 +1993,14 @@ _EXTERN_C_ int MPI_Ssend(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
  
 {
   _wrap_py_return_val = PMPI_Ssend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  // Write properties of this send initiation to logfile 
+  // such that sender-nondeterminism can be detected by 
+  // comparing logs across multiple runs. 
+  fprintf(logfile_ptr, "call=ssend, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
+          rank, ssend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
+  ssend_idx++;
+  // Write callstack so we know how this send is being initiated. 
+  backtrace();
 }
     return _wrap_py_return_val;
 }
