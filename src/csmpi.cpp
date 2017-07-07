@@ -71,6 +71,11 @@ void csmpi_init() {
     exit(0);
   } 
   rank = my_rank;
+  // Check that global rank variable has been properly set
+  if (rank < 0) {
+    printf("Rank incorrect\n");
+    exit(0);
+  }
   // Open logfile for this rank
   std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string(my_rank) + ".log";
   logfile_ptr = fopen(logfile_path.c_str(), "w");
