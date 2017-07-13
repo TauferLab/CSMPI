@@ -23,6 +23,68 @@ def search_source(cleaned_callstack, src_dir):
     ### source files containing 
     return 0
 
+def extract_comm_event(line):
+    ### Necessary regexes
+    callstack_end_regex = re.compile("^end callstack$")
+    ### get function call signature
+    signature = tuple([ int(f.split("=")[1].strip()) for f in line.split(",")[1:] ])
+    ### get callstack data
+    callstack_data = []
+    #line = log_file.next()
+    #while not callstack_end_regex.match(line):
+    #    line = log_file.next()
+    #    callstack_data.append(line)
+    #callstack_data = callstack_data[:-1]
+    return (signature, callstack_data)
+
+
+def extract_csmpi_data(csmpi_dir):
+    ### regexes for event types
+    isend_regex = re.compile("^call=isend")
+    send_regex = re.compile("^call=send")
+    waitany_regex = re.compile("^call=waitany")
+    test_regex = re.compile("^call=test")
+    rank_to_csmpi_data = {}
+    ### Loop over all CSMPI logs and extract communication events
+    for log in glob.glob(csmpi_dir+"/*.log"):
+        event_type_to_data = {}
+        ### Extract MPI rank for this logfile
+        rank = int(log.split(".")[0].split("_")[-1])
+        ### Open log file and get lines
+        with open(log, "rb") as logfile:
+            lines = logfile.readlines()
+        for l in lines:
+            if isend_regex.match(l):
+                if "isend" not in event_type_to_data:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["isend"] = {"signatures":[signature], "callstacks":[callstack]}
+                else:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["isend"]["signatures"].append(signature)
+                    event_type_to_data["isend"]["callstacks"].append(callstack)
+            elif send_regex.match(l):
+                if "send" not in event_type_to_data:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["send"] = {"signatures":[signature], "callstacks":[callstack]}
+                else:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["send"]["signatures"].append(signature)
+                    event_type_to_data["send"]["callstacks"].append(callstack)
+            elif waitany_regex_match(l):
+                if "waitany" not in event_type_to_data:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["waitany"] = {"signatures":[signature], "callstacks":[callstack]}
+                else:
+                    signature, callstack = extract_comm_event(l)
+                    event_type_to_data["waitany"]["signatures"].append(signature)
+                    event_type_to_data["waitany"]["callstacks"].append(callstack)
+        rank_to_csmpi_data[rank] = event_type_to_data
+    return rank_to_csmpi_data
+                    
+            
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="A script to compare CSMPI traces")
     parser.add_argument("-d", "--data_dir", nargs=1,
@@ -32,12 +94,67 @@ def main():
     args = parser.parse_args()
     data_dir = args.data_dir[0]
 
-    root, dirs, files = os.walk(data_dir)
+    run_to_csmpi_data = {}
+    ### Loop over all run dirs and extract run data
+    for run_dir in glob.glob(data_dir+"/run_*"):
+        print "Working on run: " + str(run_dir)
+        start_time = time.time()
+        csmpi_dir = run_dir + "/csmpi_dir/"
+        csmpi_data = extract_csmpi_data(csmpi_dir)
+        run_to_csmpi_data[run_dir] = csmpi_data
+        print "Elapsed time = " + str(time.time() - start_time)
+
+    ### Check that each rank issued same number of isends each run
+    rank_to_tag_to_counts = {}
+    for run in run_to_csmpi_data.keys():
+        rank_to_num_isends = {}
+        rank_to_num_isends_of_tag = {}
+        for rank in run_to_csmpi_data[run].keys():
+            tag_to_isends = {}
+            for isend in run_to_csmpi_data[run][rank]["isend"]["signatures"]:
+                tag = isend[-2]
+                if tag not in tag_to_isends:
+                    tag_to_isends[tag] = [isend]
+                else:
+                    tag_to_isends[tag].append(isend)
+            num_isends = len(run_to_csmpi_data[run][rank]["isend"]["signatures"])
+            num_isends_of_tag = {k:len(v) for k,v in tag_to_isends.items()}
+            rank_to_num_isends[rank] = num_isends
+            rank_to_num_isends_of_tag[rank] = num_isends_of_tag
+        for rank in rank_to_num_isends_of_tag.keys():
+            if rank not in rank_to_tag_to_counts:
+                rank_to_tag_to_counts[rank] = {}
+                for tag in rank_to_num_isends_of_tag[rank].keys():
+                    if tag not in rank_to_tag_to_counts[rank]:
+                        rank_to_tag_to_counts[rank][tag] = [rank_to_num_isends_of_tag[rank][tag]]
+                    else:
+                        rank_to_tag_to_counts[rank][tag].append(rank_to_num_isends_of_tag[rank][tag])
+            else:
+                for tag in rank_to_num_isends_of_tag[rank].keys():
+                    if tag not in rank_to_tag_to_counts[rank]:
+                        rank_to_tag_to_counts[rank][tag] = [rank_to_num_isends_of_tag[rank][tag]]
+                    else:
+                        rank_to_tag_to_counts[rank][tag].append(rank_to_num_isends_of_tag[rank][tag])
+
+        #print str(run) + " --> " + str(rank_to_num_isends_of_tag)
+    pprint.pprint(rank_to_tag_to_counts)
+    import numpy as np
+    rank_to_tag_to_std = {}
+    for rank in rank_to_tag_to_counts.keys():
+        rank_to_tag_to_std[rank] = {}
+        for tag in rank_to_tag_to_counts[rank].keys():
+            counts = rank_to_tag_to_counts[rank][tag]
+            rank_to_tag_to_std[rank][tag] = {"std":round(np.std(counts)), "min":min(counts), "max":max(counts), "med":np.median(counts)}
+    pprint.pprint(rank_to_tag_to_std)
+
+
+    exit()
+
     runs = [ root[0]+d for d in root[1] ]
     isend_regex = re.compile("^call=isend")
     callstack_end_regex = re.compile("^end callstack$")
     run_to_isend_set = {}
-    shelf_name = data_dir + ".shelf"
+    shelf_name = data_dir + "csmpi.shelf"
     if os.path.isfile(shelf_name):
         print "loading from shelf"
         start_time = time.time()
@@ -48,11 +165,15 @@ def main():
     else:
         ### Parse logs, collect isend data, store to shelf
         for r in runs:
+            print "Working on run: " + str(r)
+            run_start_time = time.time()
             run_to_isend_set[r] = {"isends":None, "callstacks":None}
             logfiles = glob.glob(r+"/*.log")
             rank_to_isends = {}
             rank_to_callstacks = {}
             for lf in logfiles:
+                print "Extracting from logfile: " + str(lf)
+                logfile_start_time = time.time()
                 with open(lf, "rb") as log_file:    
                     rank = int(lf.split(".")[0].split("_")[-1])
                     isends = []
@@ -72,8 +193,10 @@ def main():
                             isend_to_callstack[features] = callstack_data
                 rank_to_isends[rank] = isends
                 rank_to_callstacks[rank] = isend_to_callstack
+                print "Done with logfile elapsed = " + str(time.time() - logfile_start_time)
             run_to_isend_set[r]["isends"] = rank_to_isends
             run_to_isend_set[r]["callstacks"] = rank_to_callstacks
+            print "Done elapsed time = " + str(time.time() - run_start_time)
         ### Persist to shelf
         shelf = shelve.open(shelf_name)
         shelf["run_to_isend_set"] = run_to_isend_set
@@ -81,38 +204,39 @@ def main():
 
     ### Proof of concept
     ### Check to see if rank 0's sends differed run to run
-    run1_flows = {}
-    run2_flows = {}
-    run1_rank0_send_set = run_to_isend_set[data_dir+"run1"]["isends"][0]
-    run2_rank0_send_set = run_to_isend_set[data_dir+"run2"]["isends"][0]
-    run1_rank0_callstacks = run_to_isend_set[data_dir+"run1"]["callstacks"][0]
-    run2_rank0_callstacks = run_to_isend_set[data_dir+"run2"]["callstacks"][0]
-    for i in xrange(min(len(run1_rank0_send_set),len(run2_rank0_send_set))):
-        if run1_rank0_send_set[i] == run2_rank0_send_set[i]:
-            #print str(run1_rank0_send_set[i]) + " matches " + str(run2_rank0_send_set[i])
-            continue
-        else:
-            if run1_rank0_send_set[i][4] != run2_rank0_send_set[i][4]:
-                #print "diff dest: " + str(run1_rank0_send_set[i]) + " vs " + str(run2_rank0_send_set[i])
-                #print "Run 1 callstack"
-                #pprint.pprint(run1_rank0_callstacks[run1_rank0_send_set[i]])
-                #print "Run 2 callstack"
-                #pprint.pprint(run2_rank0_callstacks[run2_rank0_send_set[i]])
-                run1_callstack = clean_callstack(run1_rank0_callstacks[run1_rank0_send_set[i]])
-                run2_callstack = clean_callstack(run2_rank0_callstacks[run2_rank0_send_set[i]])
-                if run1_callstack not in run1_flows:
-                    run1_flows[run1_callstack] = 1
-                else:
-                    run1_flows[run1_callstack] += 1
-                if run2_callstack not in run2_flows:
-                    run2_flows[run2_callstack] = 1
-                else:
-                    run2_flows[run2_callstack] += 1
-    
-    print "Run 1 flows"
-    pprint.pprint(run1_flows)
-    print "Run 2 flows"
-    pprint.pprint(run2_flows)
+    for rank in range(8):
+        run1_flows = {}
+        run2_flows = {}
+        run1_rank0_send_set = run_to_isend_set[data_dir+"run_00"]["isends"][rank]
+        run2_rank0_send_set = run_to_isend_set[data_dir+"run_01"]["isends"][rank]
+        run1_rank0_callstacks = run_to_isend_set[data_dir+"run_00"]["callstacks"][rank]
+        run2_rank0_callstacks = run_to_isend_set[data_dir+"run_01"]["callstacks"][rank]
+        for i in xrange(min(len(run1_rank0_send_set),len(run2_rank0_send_set))):
+            if run1_rank0_send_set[i] == run2_rank0_send_set[i]:
+                #print str(run1_rank0_send_set[i]) + " matches " + str(run2_rank0_send_set[i])
+                continue
+            else:
+                if run1_rank0_send_set[i][4] != run2_rank0_send_set[i][4]:
+                    #print "diff dest: " + str(run1_rank0_send_set[i]) + " vs " + str(run2_rank0_send_set[i])
+                    #print "Run 1 callstack"
+                    #pprint.pprint(run1_rank0_callstacks[run1_rank0_send_set[i]])
+                    #print "Run 2 callstack"
+                    #pprint.pprint(run2_rank0_callstacks[run2_rank0_send_set[i]])
+                    run1_callstack = clean_callstack(run1_rank0_callstacks[run1_rank0_send_set[i]])
+                    run2_callstack = clean_callstack(run2_rank0_callstacks[run2_rank0_send_set[i]])
+                    if run1_callstack not in run1_flows:
+                        run1_flows[run1_callstack] = 1
+                    else:
+                        run1_flows[run1_callstack] += 1
+                    if run2_callstack not in run2_flows:
+                        run2_flows[run2_callstack] = 1
+                    else:
+                        run2_flows[run2_callstack] += 1
+        print "Rank " + str(rank) 
+        print "Run 1 flows"
+        pprint.pprint(run1_flows)
+        print "Run 2 flows"
+        pprint.pprint(run2_flows)
             
 
 

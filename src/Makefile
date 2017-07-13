@@ -1,15 +1,15 @@
-CC = mpicc
-CFLAGS = -g -std=c++11 -fPIC 
+CXX = mpicxx
+CFLAGS = -g -fPIC -std=c++11
 INCLUDE = 
 LDFLAGS =
-LIBS = -lstdc++ -lunwind
+LIBS = -lunwind 
 
 OBJ_DIR = /g/g17/chapp1/csmpi/src/obj/
 BUILD_DIR = ../build/lib/
 
 all:
-	$(CC) $(CFLAGS) $(INCLUDE) -c csmpi.cpp -o $(OBJ_DIR)csmpi.o 
-	$(CC) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
+	$(CXX) $(CFLAGS) $(INCLUDE) -c csmpi.cpp -o $(OBJ_DIR)csmpi.o 
+	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
 
 clean:
 	rm $(OBJ_DIR)*
