@@ -7,6 +7,8 @@ import shelve
 import subprocess as sp 
 import time
 
+#from MotifDetector import get_recv_completion_motifs
+
 def clean_callstack(callstack):
     ### Strip out everything but function names    
     callstack = [ call.split("(")[1] for call in callstack ]
@@ -37,13 +39,33 @@ def extract_comm_event(line, logfile):
     callstack_data = callstack_data[:-1]
     return (signature, callstack_data)
 
+def parse_multirecv_completion(line, logfile):
+    ### get function call signature
+    signature = tuple([ int(f.split("=")[-1].strip()) for f in line.split(",")[1:] ])
+    matched = signature[0]
+    ### get completions
+    if matched == 1:
+        completions = []
+        while ("Done testsome" not in line):
+            line = logfile.next()
+            completions.append(line)
+        ### get callstack
+        callstack = []
+        while ("end callstack" not in line):
+            line = logfile.next()
+            callstack.append(line)
+        return (signature, completions[:-1], callstack[:-1])
+    else:
+        return None
+        
 
 def extract_csmpi_data(csmpi_dir):
     ### regexes for event types
     isend_regex = re.compile("^call=isend")
     send_regex = re.compile("^call=send")
     waitany_regex = re.compile("^call=waitany")
-    test_regex = re.compile("^call=test")
+    test_regex = re.compile("^call=test,")
+    testsome_regex = re.compile("^call=testsome,")
     rank_to_csmpi_data = {}
     ### Loop over all CSMPI logs and extract communication events
     for log in glob.glob(csmpi_dir+"/*.log"):
@@ -61,30 +83,47 @@ def extract_csmpi_data(csmpi_dir):
                         signature, callstack = extract_comm_event(l, logfile)
                         event_type_to_data["isend"]["signatures"].append(signature)
                         event_type_to_data["isend"]["callstacks"].append(callstack)
-                elif send_regex.match(l):
-                    if "send" not in event_type_to_data:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["send"] = {"signatures":[signature], "callstacks":[callstack]}
-                    else:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["send"]["signatures"].append(signature)
-                        event_type_to_data["send"]["callstacks"].append(callstack)
-                elif waitany_regex.match(l):
-                    if "waitany" not in event_type_to_data:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["waitany"] = {"signatures":[signature], "callstacks":[callstack]}
-                    else:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["waitany"]["signatures"].append(signature)
-                        event_type_to_data["waitany"]["callstacks"].append(callstack)
-                elif test_regex.match(l):
-                    if "test" not in event_type_to_data:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["test"] = {"signatures":[signature], "callstacks":[callstack]}
-                    else:
-                        signature, callstack = extract_comm_event(l, logfile)
-                        event_type_to_data["test"]["signatures"].append(signature)
-                        event_type_to_data["test"]["callstacks"].append(callstack)
+                #elif send_regex.match(l):
+                #    if "send" not in event_type_to_data:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["send"] = {"signatures":[signature], "callstacks":[callstack]}
+                #    else:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["send"]["signatures"].append(signature)
+                #        event_type_to_data["send"]["callstacks"].append(callstack)
+                #elif waitany_regex.match(l):
+                #    if "waitany" not in event_type_to_data:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["waitany"] = {"signatures":[signature], "callstacks":[callstack]}
+                #    else:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["waitany"]["signatures"].append(signature)
+                #        event_type_to_data["waitany"]["callstacks"].append(callstack)
+                #elif testsome_regex.match(l):
+                #    if "testsome" not in event_type_to_data:
+                #        try:
+                #            signature, completions, callstack = parse_multirecv_completion(l, logfile)
+                #            event_type_to_data["testsome"] = {"signatures":[signature],
+                #                                              "completions":[completions],
+                #                                              "callstacks":[callstack]}
+                #        except Exception:
+                #            pass
+                #    else:
+                #        try:
+                #            signature, completions, callstack = parse_multirecv_completion(l, logfile)
+                #            event_type_to_data["testsome"]["signatures"].append(signature)
+                #            event_type_to_data["testsome"]["completions"].append(completions)
+                #            event_type_to_data["testsome"]["callstacks"].append(callstack)
+                #        except Exception:
+                #            pass
+                #elif test_regex.match(l):
+                #    if "test" not in event_type_to_data:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["test"] = {"signatures":[signature], "callstacks":[callstack]}
+                #    else:
+                #        signature, callstack = extract_comm_event(l, logfile)
+                #        event_type_to_data["test"]["signatures"].append(signature)
+                #        event_type_to_data["test"]["callstacks"].append(callstack)
         rank_to_csmpi_data[rank] = event_type_to_data
     return rank_to_csmpi_data
                     
@@ -106,33 +145,188 @@ def main():
     for run_dir in glob.glob(data_dir+"/run_*"):
         print "Working on run: " + str(run_dir)
         start_time = time.time()
-        csmpi_dir = run_dir + "/csmpi_dir/"
+        csmpi_dir = run_dir + "/csmpi/"
         csmpi_data = extract_csmpi_data(csmpi_dir)
         run_to_csmpi_data[run_dir] = csmpi_data
         print "Elapsed time = " + str(time.time() - start_time)
 
+    #get_recv_completion_motifs(run_to_csmpi_data)
+    #exit()
+
     ### Look at sequence of isends for each rank across all runs
-    print "Isend record format -- [ tag, dest, count ]"
+    #print "Isend record format -- [ tag, dest, count ]"
     rank_to_sig_to_callstack = {}
     #for rank in range(len(run_to_csmpi_data[run_to_csmpi_data.keys()[0]].keys()))[:1]:
     for rank in range(len(run_to_csmpi_data[run_to_csmpi_data.keys()[0]].keys())):
         print "Rank: " + str(rank)
         run_to_isend_set = {}
-        for run in sorted(run_to_csmpi_data.keys())[:7]:
+        #for run in sorted(run_to_csmpi_data.keys())[:7]:
+        for run in sorted(run_to_csmpi_data.keys()):
             event_type_to_data = run_to_csmpi_data[run][rank]
             isends_signatures = event_type_to_data["isend"]["signatures"]
             isends_callstacks = event_type_to_data["isend"]["callstacks"]
             run_to_isend_set[run] = {"signatures":isends_signatures, "callstacks":isends_callstacks}
             #run_to_isend_set[run] = isends_signatures
 
-        ### Write send sequences for analysis
+        ### Find maximum length of send sequences across all runs
         isend_counts = []
         for run in sorted(run_to_isend_set.keys()):
             isend_counts.append(len(run_to_isend_set[run]["signatures"]))
-        num_isends = max(isend_counts)
-        with open("send_seq.txt", "wb") as seq_file:
-            
+        max_num_isends = max(isend_counts)
+        
+        ### Write send sequences for analysis
+        all_sigs = []
+        for run in sorted(run_to_isend_set.keys()):
+            sigstr_to_callstack = {}
+            run_number = run.split("_")[-1].split(".")[0]
+            with open("send_seq_"+str(run_number)+".txt", "wb") as seq_file:
+                for i in range(max_num_isends):
+                    try:
+                        sig = run_to_isend_set[run]["signatures"][i]
+                        #sigstr = str([sig[5],sig[4],sig[2]])+"\n"
+                        sigstr = str(sig[2:])+"\n"
+                        all_sigs.append(sigstr)
+                        if sigstr not in sigstr_to_callstack:
+                            sigstr_to_callstack[sigstr[:-1]] = [clean_callstack(run_to_isend_set[run]["callstacks"][i])]
+                        else:
+                            sigstr_to_callstack[sigstr[:-1]].append(clean_callstack(run_to_isend_set[run]["callstacks"][i]))
+                    except IndexError:
+                        sigstr = "NONE\n"
+                    seq_file.write(sigstr)
 
+        ### Get ND-send candidates
+        candidates = []
+        for curr_run in sorted(run_to_isend_set.keys())[:-1]:
+            curr_run_number = curr_run.split("_")[-1].split(".")[0]
+            for comp_run in sorted(run_to_isend_set.keys())[1:]:
+                comp_run_number = comp_run.split("_")[-1].split(".")[0]
+                try:
+                    p = sp.check_output(["diff", "send_seq_"+str(curr_run_number)+".txt", "send_seq_"+str(comp_run_number)+".txt"])
+                ### Why is the exceptional case where I can retrieve my data? 
+                except sp.CalledProcessError, e:
+                    edits = e.output.split("\n")
+                    edits = filter(lambda x: len(x) > 0, edits)
+                    edits = filter(lambda x: x[0] == ">" or x[0] == "<", edits)
+                    edits = filter(lambda x: "NONE" not in x, edits)
+                    candidates += [ x[2:] for x in edits ]
+        
+        #print "All sigs"
+        #pprint.pprint(set(all_sigs))
+        #print "Candidate sigs"
+        #pprint.pprint(set(candidates))
+        #exit()
+
+        #pprint.pprint(candidates)
+        #pprint.pprint(sigstr_to_callstack.keys())
+        ### Get callstack stats from candidates
+        callstack_to_count = {}
+        for sig in candidates:
+            if sig in sigstr_to_callstack:
+                callstacks = sigstr_to_callstack[sig]
+                for cs in callstacks:
+                    if cs not in callstack_to_count:
+                        callstack_to_count[cs] = 1
+                    else:
+                        callstack_to_count[cs] += 1
+        
+        ### Callstack stats
+        pprint.pprint(callstack_to_count)
+        print "\n"
+
+    #### Look at sequence of irecv completions for each rank across all runs
+    #print "Irecv completion via Test record format -- [ tag, src, count ]"
+    #for rank in range(len(run_to_csmpi_data[run_to_csmpi_data.keys()[0]].keys()))[1:]:
+    #    print "Rank: " + str(rank)
+    #    run_to_test_set = {}
+    #    for run in run_to_csmpi_data.keys()[:4]:
+    #        event_type_to_data = run_to_csmpi_data[run][rank]
+    #        tests_signatures = event_type_to_data["test"]["signatures"]
+    #        tests_callstacks = event_type_to_data["test"]["callstacks"]
+    #        #run_to_isend_set[run] = {"signatures":isends_signatures, "callstacks":isends_callstacks}
+    #        run_to_test_set[run] = tests_signatures
+
+    #    ### Display test sequences for this rank
+    #    num_tests = max({k:len(v) for k,v in run_to_test_set.items()}.values())
+    #    format_str = "{:<6} "
+    #    for run in sorted(run_to_test_set.keys()):
+    #        format_str += "{:<15} "
+    #    header = ["Test "]
+    #    for run in sorted(run_to_test_set.keys()):
+    #        header.append(run.split("/")[-1])
+    #    output = format_str.format(*header)
+    #    print output
+    #    for i in range(num_tests):
+    #        #tests_str = str(i) + ": "
+    #        tests = [str(i)]
+    #        for run in sorted(run_to_test_set.keys()):
+    #            try:
+    #                sig = run_to_test_set[run][i]
+    #                if len(sig) < 5:
+    #                    tests.append("no msg")
+    #                else:
+    #                    tests.append(str([sig[4], sig[3]]))
+    #                #tests_str += str([sig[5],sig[4],sig[2]]) + "\t"
+    #                #tests.append(str([sig[5],sig[4],sig[2]]))
+    #            except IndexError:
+    #                #tests_str += "NONE\t"
+    #                tests.append("NONE")
+    #        #print (format_str % tuple(tests))
+    #        #print tests_str.expandtabs()
+    #        #output = tests[0].ljust(3)
+    #        #for s in tests[1:]:
+    #        #    output += s.ljust(10)
+    #        #    output += "\t"
+    #        #output = "{:<3} {:<15} {:<15} {:<15} {:<15}".format(*tests)
+    #        output = format_str.format(*tests)
+    #        print output
+    #
+    #### Look at sequence of irecv completions for each rank across all runs
+    #print "Irecv completion via Testsome record format -- [ tag, src, count ]"
+    #for rank in range(len(run_to_csmpi_data[run_to_csmpi_data.keys()[0]].keys()))[1:]:
+    #    print "Rank: " + str(rank)
+    #    run_to_test_set = {}
+    #    for run in run_to_csmpi_data.keys()[:4]:
+    #        event_type_to_data = run_to_csmpi_data[run][rank]
+    #        tests_signatures = event_type_to_data["testsome"]["signatures"]
+    #        tests_callstacks = event_type_to_data["testsome"]["callstacks"]
+    #        #run_to_isend_set[run] = {"signatures":isends_signatures, "callstacks":isends_callstacks}
+    #        run_to_test_set[run] = tests_signatures
+
+    #    ### Display test sequences for this rank
+    #    num_tests = max({k:len(v) for k,v in run_to_test_set.items()}.values())
+    #    format_str = "{:<6} "
+    #    for run in sorted(run_to_test_set.keys()):
+    #        format_str += "{:<15} "
+    #    header = ["Testsome"]
+    #    for run in sorted(run_to_test_set.keys()):
+    #        header.append(run.split("/")[-1])
+    #    output = format_str.format(*header)
+    #    print output
+    #    for i in range(num_tests):
+    #        #tests_str = str(i) + ": "
+    #        tests = [str(i)]
+    #        for run in sorted(run_to_test_set.keys()):
+    #            try:
+    #                sig = run_to_test_set[run][i]
+    #                if len(sig) < 5:
+    #                    tests.append("no msg")
+    #                else:
+    #                    tests.append(str([sig[4], sig[3]]))
+    #                #tests_str += str([sig[5],sig[4],sig[2]]) + "\t"
+    #                #tests.append(str([sig[5],sig[4],sig[2]]))
+    #            except IndexError:
+    #                #tests_str += "NONE\t"
+    #                tests.append("NONE")
+    #        #print (format_str % tuple(tests))
+    #        #print tests_str.expandtabs()
+    #        #output = tests[0].ljust(3)
+    #        #for s in tests[1:]:
+    #        #    output += s.ljust(10)
+    #        #    output += "\t"
+    #        #output = "{:<3} {:<15} {:<15} {:<15} {:<15}".format(*tests)
+    #        output = format_str.format(*tests)
+    #        print output
+"""
         ### Display isend sequences for this rank
         format_str = "{:<6} "
         for run in sorted(run_to_isend_set.keys()):
@@ -288,7 +482,7 @@ def main():
     
 
     exit()
-
+"""
 """
    runs = [ root[0]+d for d in root[1] ]
    isend_regex = re.compile("^call=isend")

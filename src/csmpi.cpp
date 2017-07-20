@@ -39,6 +39,7 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 
 // For fprintf logging
 FILE* logfile_ptr;
+int num_ranks = -1;
 
 // For logging send initiations
 int rank = -1;
@@ -52,9 +53,12 @@ int irsend_idx = 0;
 int issend_idx = 0;
 
 // For logging recv completions
+#define RECV_REQUEST (152)
+int wait_idx = 0;
 int waitany_idx = 0;
 int waitall_idx = 0;
 int test_idx = 0;
+int testsome_idx = 0;
 
 // Sets up everything for logging
 #define CSMPI_ENV_NAME_DIR "CSMPI_DIR"
@@ -70,6 +74,8 @@ void csmpi_init() {
     csmpi_logfile_dir_path = env_var; 
     mkdir(csmpi_logfile_dir_path.c_str(), S_IRWXU);
   }
+  // Get comm size
+  PMPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
   // Get rank and set global rank variable
   int my_rank, mpi_err;
   mpi_err = PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
@@ -2103,23 +2109,23 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 
 {
   _wrap_py_return_val = PMPI_Test(arg_0, arg_1, arg_2);
-  if (*arg_1) {
-    if (arg_2 != MPI_STATUS_IGNORE) {
-      fprintf(logfile_ptr, "call=test, 1, rank=%d, idx=%d, src=%d, tag=%d\n", rank, test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
-      test_idx++;
-      backtrace();
-    }
-    else {
-      fprintf(logfile_ptr, "call=test, 1, rank=%d, idx=%d, src=DUMMY, tag=DUMMY\n");
-      test_idx++;
-      backtrace();
-    }
-  }
-  else {
-    fprintf(logfile_ptr, "call=test, 0, rank=%d, idx=%d\n", rank, test_idx);
-    test_idx++;
-    backtrace();
-  }
+//  if (*arg_1) {
+//    if (arg_2 != MPI_STATUS_IGNORE) {
+//      fprintf(logfile_ptr, "call=test, matched=1, rank=%d, idx=%d, src=%d, tag=%d\n", rank, test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
+//      test_idx++;
+//      backtrace();
+//    }
+//    else {
+//      fprintf(logfile_ptr, "call=test, matched=1, rank=%d, idx=%d, src=-1, tag=-1\n", rank, test_idx);
+//      test_idx++;
+//      backtrace();
+//    }
+//  }
+//  else {
+//    fprintf(logfile_ptr, "call=test, matched=0, rank=%d, idx=%d\n", rank, test_idx);
+//    test_idx++;
+//    backtrace();
+//  }
 }
     return _wrap_py_return_val;
 }
@@ -2157,17 +2163,40 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 //    return _wrap_py_return_val;
 //}
 //
-///* ================== C Wrappers for MPI_Testsome ================== */
-//_EXTERN_C_ int PMPI_Testsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4);
-//_EXTERN_C_ int MPI_Testsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Testsome(arg_0, arg_1, arg_2, arg_3, arg_4);
-//}
-//    return _wrap_py_return_val;
-//}
-//
+/* ================== C Wrappers for MPI_Testsome ================== */
+_EXTERN_C_ int PMPI_Testsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4);
+_EXTERN_C_ int MPI_Testsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Testsome(arg_0, arg_1, arg_2, arg_3, arg_4);
+  int num_original_reqs = arg_0;
+  int num_completed_reqs = *arg_2;
+  int i, idx;
+  // Check if a match has been made
+  if (num_completed_reqs > 0) {
+    // Only attempt to log message matching information if statuses are filled in.
+    if (arg_4 != MPI_STATUSES_IGNORE) {
+      fprintf(logfile_ptr, "call=testsome, matched=1, idx=%d, count=%d, completed=%d\n", testsome_idx, num_original_reqs, num_completed_reqs);
+      for (i=0; i<num_completed_reqs; i++) {
+        idx = arg_3[i];
+        if (0 <= arg_4[idx].MPI_SOURCE <= num_ranks) {
+          fprintf(logfile_ptr, "src=%d, tag=%d\n", arg_4[idx].MPI_SOURCE, arg_4[idx].MPI_TAG);
+        }
+      }
+      fprintf(logfile_ptr, "Done testsome\n");
+      backtrace();
+    }
+  }
+  else {
+    fprintf(logfile_ptr, "call=testsome, matched=0, idx=%d\n", testsome_idx);
+    backtrace();
+  }
+  testsome_idx++;
+}
+    return _wrap_py_return_val;
+}
+
 ///* ================== C Wrappers for MPI_Topo_test ================== */
 //_EXTERN_C_ int PMPI_Topo_test(MPI_Comm arg_0, int *arg_1);
 //_EXTERN_C_ int MPI_Topo_test(MPI_Comm arg_0, int *arg_1) { 
@@ -2377,17 +2406,20 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 //    return _wrap_py_return_val;
 //}
 //
-///* ================== C Wrappers for MPI_Wait ================== */
-//_EXTERN_C_ int PMPI_Wait(MPI_Request *arg_0, MPI_Status *arg_1);
-//_EXTERN_C_ int MPI_Wait(MPI_Request *arg_0, MPI_Status *arg_1) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Wait(arg_0, arg_1);
-//}
-//    return _wrap_py_return_val;
-//}
-//
+/* ================== C Wrappers for MPI_Wait ================== */
+_EXTERN_C_ int PMPI_Wait(MPI_Request *arg_0, MPI_Status *arg_1);
+_EXTERN_C_ int MPI_Wait(MPI_Request *arg_0, MPI_Status *arg_1) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Wait(arg_0, arg_1);
+//  fprintf(logfile_ptr, "call=wait, idx=%d, src=%d, tag=%d\n", wait_idx, arg_1->MPI_SOURCE, arg_1->MPI_TAG);
+//  wait_idx++;
+//  backtrace();
+}
+    return _wrap_py_return_val;
+}
+
 /* ================== C Wrappers for MPI_Waitall ================== */
 _EXTERN_C_ int PMPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2);
 _EXTERN_C_ int MPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2) { 
@@ -2395,13 +2427,20 @@ _EXTERN_C_ int MPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2) {
  
 {
   _wrap_py_return_val = PMPI_Waitall(arg_0, arg_1, arg_2);
-//  int i;
-//  fprintf(logfile_ptr, "call=waitall, idx=%d\n", waitall_idx);
-//  for (i=0; i<arg_0; i++) {
-//    fprintf(logfile_ptr, "src=%d, tag=%d\n", arg_2[i].MPI_SOURCE, arg_2[i].MPI_TAG);
-//  }
-//  waitall_idx++;
-//  backtrace();
+  int i;
+  //if (arg_0 > 0) {
+    if (arg_2 != MPI_STATUSES_IGNORE) {
+      fprintf(logfile_ptr, "call=waitall, idx=%d, count=%d\n", waitall_idx, arg_0);
+      for (i=0; i<arg_0; i++) {
+        if (arg_2[i].MPI_SOURCE <= num_ranks) {
+          fprintf(logfile_ptr, "src=%d, tag=%d\n", arg_2[i].MPI_SOURCE, arg_2[i].MPI_TAG);
+        }
+      }
+      fprintf(logfile_ptr, "Done waitall\n");
+      waitall_idx++;
+      backtrace();
+    }
+  //}
 }
     return _wrap_py_return_val;
 }
@@ -2419,7 +2458,7 @@ _EXTERN_C_ int MPI_Waitany(int arg_0, MPI_Request *arg_1, int *arg_2, MPI_Status
     backtrace();
   }
   else {
-    fprintf(logfile_ptr, "call=waitany, rank=%d, idx=%d, src=DUMMY, tag=DUMMY\n", rank, waitany_idx);
+    fprintf(logfile_ptr, "call=waitany, rank=%d, idx=%d, src=-1, tag=-1\n", rank, waitany_idx);
     waitany_idx++;
     backtrace();
   }
@@ -2427,17 +2466,26 @@ _EXTERN_C_ int MPI_Waitany(int arg_0, MPI_Request *arg_1, int *arg_2, MPI_Status
     return _wrap_py_return_val;
 }
 
-///* ================== C Wrappers for MPI_Waitsome ================== */
-//_EXTERN_C_ int PMPI_Waitsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4);
-//_EXTERN_C_ int MPI_Waitsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Waitsome(arg_0, arg_1, arg_2, arg_3, arg_4);
-//}
-//    return _wrap_py_return_val;
-//}
-//
+/* ================== C Wrappers for MPI_Waitsome ================== */
+_EXTERN_C_ int PMPI_Waitsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4);
+_EXTERN_C_ int MPI_Waitsome(int arg_0, MPI_Request *arg_1, int *arg_2, int *arg_3, MPI_Status *arg_4) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Waitsome(arg_0, arg_1, arg_2, arg_3, arg_4);
+  int outcount = *arg_2;
+  // Check that requests were not ignored
+  if (outcount != MPI_UNDEFINED) {
+    // Check that statuses were actually filled
+    if (*arg_4 != MPI_STATUSES_IGNORE) {
+      fprintf(logfile_ptr, "not impl\n"); 
+    }
+  }
+
+}
+    return _wrap_py_return_val;
+}
+
 ///* ================== C Wrappers for MPI_Wtick ================== */
 //_EXTERN_C_ double PMPI_Wtick();
 //_EXTERN_C_ double MPI_Wtick() { 
