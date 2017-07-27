@@ -1,5 +1,6 @@
 import argparse
 import difflib
+import re
 
 import time
 import pprint
@@ -59,13 +60,70 @@ class TraceComparison(object):
         ### of each so that difflib stuff can be used
         run_1_isends = run_1_events["isend"] 
         run_2_isends = run_2_events["isend"] 
+       
+        ### Create the diff
+        run_1_isends_strs = [ str(x) for x in run_1_isends ]
+        run_2_isends_strs = [ str(x) for x in run_2_isends ]
+        print "run 1 # isends: " + str(len(run_1_isends_strs))
+        print "run 2 # isends: " + str(len(run_2_isends_strs))
+        exit()
 
-        sm = difflib.SequenceMatcher(run_1_isends, run_2_isends)
-        print "Finding matching blocks of isends:"
-        start_time = time.time()
-        matching_blocks = sm.get_matching_blocks()
-        print "Elapsed = " + str(time.time() - start_time)
-        pprint.pprint(matching_blocks)
+        ### Casting to list here out of convenience 
+        num_context_lines = 3 ### This is default but idk what effect this has yet
+        diff = list(difflib.unified_diff(run_1_isends_strs, run_2_isends_strs, n=num_context_lines))
+
+        ### Separate the hunks of the diff for analysis
+        hunks = []
+        hunk_start_re = re.compile("^@@ -[\d]+,[\d]+ \+[\d]+,[\d]+ @@$")
+        i = 0
+        while not hunk_start_re.match(diff[i]):
+            i += 1
+            try:
+                if hunk_start_re.match(diff[i]):
+                    hunk = [diff[i]]
+                    while not hunk_start_re.match(diff[i+1]) and i < len(diff)-2:
+                        i += 1
+                        hunk.append(diff[i])
+                    hunks.append(hunk)
+            except IndexError:
+                break
+        hunks[-1].append(diff[-1]) # ugh
+        
+        ### Classify the kind of sender ND present in each hunk
+        hunk_to_ND_class = {}
+        for h in hunks:
+            hunk_info = h[0]
+            plus_lines = [ y[1:] for y in filter(lambda x: x[0] == "+", h) ]
+            minus_lines = [ y[1:] for y in filter(lambda x: x[0] == "-", h) ]
+            if sorted(plus_lines) == sorted(minus_lines):
+                hunk_to_ND_class[hunk_info] = (len(plus_lines), "shuffled")
+                
+                
+
+
+        #with open("run_1_isends.txt", "wb") as isend_file:
+        #    for s in run_1_isends_strs:
+        #        isend_file.write(s)
+        #        isend_file.write("\n")
+        #with open("run_2_isends.txt", "wb") as isend_file:
+        #    for s in run_2_isends_strs:
+        #        isend_file.write(s)
+        #        isend_file.write("\n")
+        #with open("isends_diff.txt", "wb") as isend_diff:
+        #    for line in difflib.unified_diff(run_1_isends_strs, run_2_isends_strs):
+        #        isend_diff.write(line)
+        #        isend_diff.write("\n")
+
+        #run_1_isends_str = "".join([str(x) for x in run_1_isends])
+        #run_2_isends_str = "".join([str(x) for x in run_2_isends])
+        #print run_1_isends_str
+        #print run_2_isends_str
+        #sm = difflib.SequenceMatcher(None, run_1_isends_str, run_2_isends_str)
+        #print "Finding matching blocks of isends:"
+        #start_time = time.time()
+        #matching_blocks = sm.get_matching_blocks()
+        #print "Elapsed = " + str(time.time() - start_time)
+        #pprint.pprint(matching_blocks)
 
 
 
