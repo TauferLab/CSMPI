@@ -4,7 +4,7 @@ INCLUDE =
 LDFLAGS =
 LIBS = -lunwind 
 
-OBJ_DIR = /g/g17/chapp1/csmpi/src/obj/
+OBJ_DIR = /g/g17/chapp1/repos/csmpi/src/obj/
 BUILD_DIR = ../build/lib/
 
 all:
