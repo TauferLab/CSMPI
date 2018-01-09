@@ -12,5 +12,5 @@ all:
 	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
 
 clean:
-	rm $(OBJ_DIR)*
-	rm $(BUILD_DIR)*
+	rm -rf $(OBJ_DIR)*
+	rm -rf $(BUILD_DIR)*

@@ -37,6 +37,7 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 #include <string>
 #include <sys/stat.h>
 #include <string.h>
+#include <time.h>
 
 #include <istream>
 #include <ostream>
@@ -59,6 +60,10 @@ int ibsend_idx = 0;
 int irsend_idx = 0;
 int issend_idx = 0;
 
+// For logging recv request initiations
+int recv_idx = 0;
+int irecv_idx = 0;
+
 // For logging recv completions
 #define RECV_REQUEST (152)
 int wait_idx = 0;
@@ -69,14 +74,67 @@ int test_idx = 0;
 int testsome_idx = 0;
 int testany_idx = 0;
 
+// Profiling
+size_t unwind_time_msec = 0;
+size_t write_time_msec = 0;
+clock_t unwind_start;
+clock_t write_start;
+clock_t unwind_duration;
+clock_t write_duration;
+
+unsigned int n_unmatched_tests;
+
+//#define SANITY_CHECK_ON_FINALIZE
 std::vector< std::vector<std::string> > callstacks;
 std::vector< std::string > signatures;
 
+// Call this function to get a backtrace.
+void backtrace() {
+  // Intermediary vars for pushing to the trace data structure
+  std::vector<std::string> callstack;
+  char buf[1024];
+  unw_cursor_t cursor;
+  unw_context_t context;
+
+  // Initialize cursor to current frame for local unwinding.
+  unw_getcontext(&context);
+  unw_init_local(&cursor, &context);
+
+  // Unwind frames one by one, going up the frame stack.
+  while (unw_step(&cursor) > 0) {
+    unw_word_t offset, pc;
+    unw_get_reg(&cursor, UNW_REG_IP, &pc);
+    if (pc == 0) {
+      break;
+    }
+    char sym[256];
+    if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0) {
+      char* nameptr = sym;
+      int status;
+      char* demangled = abi::__cxa_demangle(sym, nullptr, nullptr, &status);
+      if (status == 0) {
+        nameptr = demangled;
+      }
+      std::snprintf(buf, sizeof(buf), "0x%lx: (%s+0x%lx)\n", pc, nameptr, offset);
+      std::string buf_str = buf;
+      callstack.push_back(buf_str);
+      memset(buf, '\0', sizeof(buf));
+      std::free(demangled);
+    } 
+    else {
+      callstack.push_back(" -- error: unable to obtain symbol name for this frame\n");
+
+    }
+  }
+  callstack.push_back("end callstack\n");
+  callstacks.push_back(callstack);
+}
+
+// Write the trace out during MPI_Finalize
 void write_trace() {
   for (int i=0; i<callstacks.size(); i++) {
     fprintf(logfile_ptr, "%s", signatures[i].c_str());
     for (int j=0; j<callstacks[i].size(); j++) {
-      printf("writing line %d of chunk %d\n", j, i);
       fprintf(logfile_ptr, "%s", callstacks[i][j].c_str());
     }
   }
@@ -113,73 +171,10 @@ void csmpi_init() {
     exit(0);
   }
   // Open logfile for this rank
-  std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string((unsigned long long)my_rank) + ".log";
+  std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string((unsigned long long)my_rank) + ".csmpi";
   logfile_ptr = fopen(logfile_path.c_str(), "w");
-  //fprintf(logfile_ptr, "Begin log for rank: %d\n", my_rank);
-
-  //std::vector<std::string> trace_preamble;
-  //std::string trace_preamble_content = "Preamble for rank: " + std::to_string((unsigned long long )my_rank) + "\n";
-  //trace_preamble.push_back(trace_preamble_content);
-  //callstacks.push_back(trace_preamble);
 }
 
-// Call this function to get a backtrace.
-void backtrace() {
-  // Intermediary vars for pushing to the trace data structure
-  std::vector<std::string> callstack;
-  char buf[1024];
-
-
-  unw_cursor_t cursor;
-  unw_context_t context;
-
-  // Initialize cursor to current frame for local unwinding.
-  unw_getcontext(&context);
-  unw_init_local(&cursor, &context);
-
-  // Unwind frames one by one, going up the frame stack.
-  while (unw_step(&cursor) > 0) {
-    unw_word_t offset, pc;
-    unw_get_reg(&cursor, UNW_REG_IP, &pc);
-    if (pc == 0) {
-      break;
-    }
-    //std::fprintf(logfile_ptr, "0x%lx:", pc);
-    
-    //std::snprintf(buf, sizeof(buf), "0x%lx:", pc);
-    //std::string buf_str = buf;
-    //callstack.push_back(buf_str);
-    //memset(buf, '\0', sizeof(buf));
-      
-    char sym[256];
-    if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0) {
-      char* nameptr = sym;
-      int status;
-      char* demangled = abi::__cxa_demangle(sym, nullptr, nullptr, &status);
-      if (status == 0) {
-        nameptr = demangled;
-      }
-      //std::fprintf(logfile_ptr, " (%s+0x%lx)\n", nameptr, offset);
-
-      std::snprintf(buf, sizeof(buf), "0x%lx: (%s+0x%lx)\n", pc, nameptr, offset);
-      std::string buf_str = buf;
-      callstack.push_back(buf_str);
-      memset(buf, '\0', sizeof(buf));
-
-      std::free(demangled);
-    } 
-    else {
-      //std::fprintf(logfile_ptr, " -- error: unable to obtain symbol name for this frame\n");
-
-      callstack.push_back(" -- error: unable to obtain symbol name for this frame\n");
-
-    }
-  }
-  //std::fprintf(logfile_ptr, "end callstack\n");
-
-  callstack.push_back("end callstack\n");
-  callstacks.push_back(callstack);
-}
 
 /* ================================================================
  * Initialization, finalization, and bookkeeping functions
@@ -218,6 +213,7 @@ _EXTERN_C_ int MPI_Finalize() {
   _wrap_py_return_val = PMPI_Finalize();
   int err;
 
+#ifdef SANITY_CHECK_ON_FINALIZE
   // Print sanity check of trace for rank 0
   if (rank == 0) {
     for(int i=0; i<callstacks.size(); i++) {
@@ -227,17 +223,17 @@ _EXTERN_C_ int MPI_Finalize() {
       std::cout << std::endl;
     }
   }
+#endif
 
-  // Write trace
-  //int trace_err = 0;
-  //trace_err = write_trace();
-  //if (trace_err != 0) {
-  //  std::cout << "Write trace failed for rank: " << rank << std::endl;  
-  //}
+  write_start = clock();
   write_trace();
+  write_duration = clock() - write_start;
+  write_time_msec += (size_t)(write_duration * 1000 / CLOCKS_PER_SEC);
   
   // Close trace file
   err = fclose(logfile_ptr);
+
+  printf("Rank %d - unwind time = %llu, write time = %llu, number of unmatched tests = %llu\n", rank, unwind_time_msec, write_time_msec, n_unmatched_tests);
 }
     return _wrap_py_return_val;
 }
@@ -254,20 +250,17 @@ _EXTERN_C_ int MPI_Send(const void *arg_0, int arg_1, MPI_Datatype arg_2, int ar
  
 {
   _wrap_py_return_val = PMPI_Send(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
-  // Write properties of this send initiation to logfile 
-  // such that sender-nondeterminism can be detected by 
-  // comparing logs across multiple runs. 
-  //fprintf(logfile_ptr, "call=send,%d,%d,%d,%d\n",
-  //        send_idx, arg_1, arg_3, arg_4);
-  
   char buf[256];
   std::snprintf(buf, sizeof(buf), "call=send,%d,%d,%d,%d\n", send_idx, arg_1, arg_3, arg_4);
   std::string buf_str = buf;
   signatures.push_back(buf_str);
-  // Write callstack so we know how this send is being initiated. 
-  backtrace();
-  
   send_idx++;
+
+  unwind_start = clock();
+  backtrace();
+  unwind_duration = clock() - unwind_start;
+  unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
+
 }
     return _wrap_py_return_val;
 }
@@ -278,23 +271,16 @@ _EXTERN_C_ int MPI_Isend(const void *arg_0, int arg_1, MPI_Datatype arg_2, int a
  
 {
   _wrap_py_return_val = PMPI_Isend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-
-  // Write properties of this send initiation to logfile 
-  // such that sender-nondeterminism can be detected by 
-  // comparing logs across multiple runs.
-  //fprintf(logfile_ptr, "is, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
-  //        rank, isend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
-  //fprintf(logfile_ptr, "call=isend,%d,%d,%d,%d\n", isend_idx, arg_1, arg_3, arg_4);
-  
   char buf[256];
   std::snprintf(buf, sizeof(buf), "call=isend,%d,%d,%d,%d\n", isend_idx, arg_1, arg_3, arg_4);
   std::string buf_str = buf;
   signatures.push_back(buf_str);
-  // Write callstack so we know how this send is being initiated. 
-  backtrace();
-  
-  
   isend_idx++;
+  
+  unwind_start = clock();
+  backtrace();
+  unwind_duration = clock() - unwind_start;
+  unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
 }
     return _wrap_py_return_val;
 }
@@ -310,12 +296,16 @@ _EXTERN_C_ int MPI_Irecv(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
  
 {
   _wrap_py_return_val = PMPI_Irecv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-  //fprintf(logfile_ptr, "call=irecv,%d,%d,%d\n", arg_1, arg_3, arg_4);
   char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=irecv,%d,%d,%d\n", arg_1, arg_3, arg_4);
+  std::snprintf(buf, sizeof(buf), "call=irecv,%d,%d,%d,%d\n", irecv_idx, arg_1, arg_3, arg_4);
   std::string buf_str = buf;
   signatures.push_back(buf_str);
+  irecv_idx += 1;
+  
+  unwind_start = clock();
   backtrace();
+  unwind_duration = clock() - unwind_start;
+  unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
 }
     return _wrap_py_return_val;
 }
@@ -326,12 +316,16 @@ _EXTERN_C_ int MPI_Recv(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, i
  
 {
   _wrap_py_return_val = PMPI_Recv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-  //fprintf(logfile_ptr, "call=recv,%d,%d,%d\n", arg_1, arg_3, arg_4);
   char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=recv,%d,%d,%d\n", arg_1, arg_3, arg_4);
+  std::snprintf(buf, sizeof(buf), "call=recv,%d,%d,%d,%d\n", recv_idx, arg_1, arg_3, arg_4);
   std::string buf_str = buf;
   signatures.push_back(buf_str);
+  recv_idx += 1;
+  
+  unwind_start = clock();
   backtrace();
+  unwind_duration = clock() - unwind_start;
+  unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
 }
     return _wrap_py_return_val;
 }
@@ -351,32 +345,45 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
   if (*arg_1) {
     // Subcase: Status fields filled
     if (arg_2 != MPI_STATUS_IGNORE) {
-      //fprintf(logfile_ptr, "call=test,1,%d,%d,%d\n", test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
       char buf[256];
       std::snprintf(buf, sizeof(buf), "call=mtest,%d,%d,%d\n", test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
       std::string buf_str = buf;
       signatures.push_back(buf_str);
-      backtrace();
-      
       test_idx++;
+  
+      unwind_start = clock();
+      backtrace();
+      unwind_duration = clock() - unwind_start;
+      unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
     }
     // Subcase: Ignore status
     else {
-      //fprintf(logfile_ptr, "mti,%d\n", test_idx);
-      //test_idx++;
-      //backtrace();
+      char buf[256];
+      std::snprintf(buf, sizeof(buf), "call=mtest_statusignore,%d\n", test_idx);
+      std::string buf_str = buf;
+      signatures.push_back(buf_str);
+      test_idx++;
+      
+      unwind_start = clock();
+      backtrace();
+      unwind_duration = clock() - unwind_start;
+      unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
     }
   }
   // Case: Unmatched test
   else {
-    //fprintf(logfile_ptr, "call=test,0\n");
     char buf[256];
     std::snprintf(buf, sizeof(buf), "call=umtest,%d\n", test_idx);
     std::string buf_str = buf;
     signatures.push_back(buf_str);
-    
     test_idx++;
+
+    n_unmatched_tests += 1;
+
+    //unwind_start = clock();
     //backtrace();
+    //unwind_duration = clock() - unwind_start;
+    //unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
   }
 }
     return _wrap_py_return_val;
