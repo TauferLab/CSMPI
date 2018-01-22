@@ -2,6 +2,7 @@ CXX = mpicxx
 CFLAGS = -g -fPIC -std=c++11
 INCLUDE = 
 LDFLAGS =
+LD_LIBRARY_FLAGS = 
 LIBS = -lunwind -lz 
 
 OBJ_DIR = $(HOME)/repos/csmpi/src/obj/
@@ -13,7 +14,7 @@ all:
 	mkdir $(BUILD_DIR)
 	mkdir $(LIB_DIR)
 	$(CXX) $(CFLAGS) $(INCLUDE) -c csmpi.cpp -o $(OBJ_DIR)csmpi.o 
-	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
+	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LD_LIBRARY_FLAGS) $(LIBS)
 
 clean:
 	rm -rf $(OBJ_DIR)*
