@@ -4,10 +4,14 @@ INCLUDE =
 LDFLAGS =
 LIBS = -lunwind -lz 
 
-OBJ_DIR = /g/g17/chapp1/repos/csmpi/src/obj/
-BUILD_DIR = ../build/lib/
+OBJ_DIR = $(HOME)/repos/csmpi/src/obj/
+BUILD_DIR = ../build/
+LIB_DIR = $(BUILD_DIR)/lib
 
 all:
+	mkdir $(OBJ_DIR)
+	mkdir $(BUILD_DIR)
+	mkdir $(LIB_DIR)
 	$(CXX) $(CFLAGS) $(INCLUDE) -c csmpi.cpp -o $(OBJ_DIR)csmpi.o 
 	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
 
