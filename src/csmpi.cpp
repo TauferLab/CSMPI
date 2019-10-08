@@ -37,6 +37,7 @@ _EXTERN_C_ void pmpi_init__(MPI_Fint *ierr);
 #include <string>
 #include <sys/stat.h>
 #include <string.h>
+#include <time.h>
 
 #include <istream>
 #include <ostream>
@@ -58,6 +59,10 @@ int isend_idx = 0;
 int ibsend_idx = 0;
 int irsend_idx = 0;
 int issend_idx = 0;
+
+// For logging recv request initiations
+int recv_idx = 0;
+int irecv_idx = 0;
 
 // For logging recv completions
 #define RECV_REQUEST (152)
@@ -122,14 +127,33 @@ void csmpi_init() {
   //trace_preamble.push_back(trace_preamble_content);
   //callstacks.push_back(trace_preamble);
 }
+// For logging probe stuff
+int probe_idx = 0;
+int iprobe_idx = 0;
+
+// For logging bookkeeping functions
+int comm_rank_idx = 0;
+int comm_size_idx = 0;
+
+// Profiling
+size_t unwind_time_msec = 0;
+size_t write_time_msec = 0;
+clock_t unwind_start;
+clock_t write_start;
+clock_t unwind_duration;
+clock_t write_duration;
+
+unsigned int n_unmatched_tests;
+
+//#define SANITY_CHECK_ON_FINALIZE
+std::vector< std::vector <std::string> > callstacks;
+std::vector< std::string > signatures;
 
 // Call this function to get a backtrace.
 void backtrace() {
   // Intermediary vars for pushing to the trace data structure
   std::vector<std::string> callstack;
   char buf[1024];
-
-
   unw_cursor_t cursor;
   unw_context_t context;
 
@@ -159,8 +183,6 @@ void backtrace() {
       if (status == 0) {
         nameptr = demangled;
       }
-      //std::fprintf(logfile_ptr, " (%s+0x%lx)\n", nameptr, offset);
-
       std::snprintf(buf, sizeof(buf), "0x%lx: (%s+0x%lx)\n", pc, nameptr, offset);
       std::string buf_str = buf;
       callstack.push_back(buf_str);
@@ -171,15 +193,62 @@ void backtrace() {
     else {
       //std::fprintf(logfile_ptr, " -- error: unable to obtain symbol name for this frame\n");
 
+      std::free(demangled);
+    } 
+    else {
       callstack.push_back(" -- error: unable to obtain symbol name for this frame\n");
 
     }
   }
-  //std::fprintf(logfile_ptr, "end callstack\n");
-
   callstack.push_back("end callstack\n");
   callstacks.push_back(callstack);
 }
+
+// Write the trace out during MPI_Finalize
+void write_trace() {
+  for (int i=0; i<callstacks.size(); i++) {
+    fprintf(logfile_ptr, "%s", signatures[i].c_str());
+    for (int j=0; j<callstacks[i].size(); j++) {
+      fprintf(logfile_ptr, "%s", callstacks[i][j].c_str());
+    }
+  }
+}
+
+
+// Sets up everything for logging
+#define CSMPI_ENV_NAME_DIR "CSMPI_DIR"
+void csmpi_init() {
+  // Get logfile dir path from environment var
+  std::string csmpi_logfile_dir_path;
+  char* env_var;
+  env_var = getenv(CSMPI_ENV_NAME_DIR);
+  if (NULL == env_var) {
+    printf("getenv failed, specify CSMPI_DIR\n");
+    exit(0);
+  } else {
+    csmpi_logfile_dir_path = env_var; 
+    mkdir(csmpi_logfile_dir_path.c_str(), S_IRWXU);
+  }
+  // Get comm size
+  PMPI_Comm_size(MPI_COMM_WORLD, &num_ranks);
+  // Get rank and set global rank variable
+  int my_rank, mpi_err;
+  mpi_err = PMPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+  if (mpi_err != MPI_SUCCESS) {
+    printf("MPI_Comm_rank failed during csmpi_init\n");
+    exit(0);
+  } 
+  rank = my_rank;
+  // Check that global rank variable has been properly set
+  if (rank < 0) {
+    printf("Rank incorrect\n");
+    exit(0);
+  }
+  // Open logfile for this rank
+  std::string logfile_path = csmpi_logfile_dir_path + "/rank_" + std::to_string((unsigned long long)my_rank) + ".csmpi";
+  logfile_ptr = fopen(logfile_path.c_str(), "w");
+}
+
 
 /* ================================================================
  * Initialization, finalization, and bookkeeping functions
@@ -217,7 +286,17 @@ _EXTERN_C_ int MPI_Finalize() {
 {
   _wrap_py_return_val = PMPI_Finalize();
   int err;
+  char buf[256];
+  std::snprintf(buf, sizeof(buf), "call=finalize\n");
+  std::string buf_str = buf;
+  signatures.push_back(buf_str);
 
+  unwind_start = clock();
+  backtrace();
+  unwind_duration = clock() - unwind_start;
+  unwind_time_msec += (size_t)(unwind_duration * 1000 / CLOCKS_PER_SEC);
+
+#ifdef SANITY_CHECK_ON_FINALIZE
   // Print sanity check of trace for rank 0
   if (rank == 0) {
     for(int i=0; i<callstacks.size(); i++) {
@@ -238,15 +317,51 @@ _EXTERN_C_ int MPI_Finalize() {
   
   // Close trace file
   err = fclose(logfile_ptr);
+#endif
+
+  write_start = clock();
+  write_trace();
+  write_duration = clock() - write_start;
+  write_time_msec += (size_t)(write_duration * 1000 / CLOCKS_PER_SEC);
+  
+  // Close trace file
+  int err;
+  err = fclose(logfile_ptr);
+
+  printf("Rank %d - unwind time = %llu, write time = %llu, number of unmatched tests = %llu\n", rank, unwind_time_msec, write_time_msec, n_unmatched_tests);
 }
     return _wrap_py_return_val;
 }
 
 
-/* ================================================================
- * Send-initiation functions
- * ================================================================
- */
+
+
+
+
+
+
+/* ================== C Wrappers for MPI_Comm_rank ================== */
+_EXTERN_C_ int PMPI_Comm_rank(MPI_Comm arg_0, int *arg_1);
+_EXTERN_C_ int MPI_Comm_rank(MPI_Comm arg_0, int *arg_1) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Comm_rank(arg_0, arg_1);
+}
+    return _wrap_py_return_val;
+}
+
+/* ================== C Wrappers for MPI_Comm_size ================== */
+_EXTERN_C_ int PMPI_Comm_size(MPI_Comm arg_0, int *arg_1);
+_EXTERN_C_ int MPI_Comm_size(MPI_Comm arg_0, int *arg_1) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Comm_size(arg_0, arg_1);
+}
+    return _wrap_py_return_val;
+}
+
 /* ================== C Wrappers for MPI_Send ================== */
 _EXTERN_C_ int PMPI_Send(const void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, int arg_4, MPI_Comm arg_5);
 _EXTERN_C_ int MPI_Send(const void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, int arg_4, MPI_Comm arg_5) { 
@@ -254,23 +369,10 @@ _EXTERN_C_ int MPI_Send(const void *arg_0, int arg_1, MPI_Datatype arg_2, int ar
  
 {
   _wrap_py_return_val = PMPI_Send(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
-  // Write properties of this send initiation to logfile 
-  // such that sender-nondeterminism can be detected by 
-  // comparing logs across multiple runs. 
-  //fprintf(logfile_ptr, "call=send,%d,%d,%d,%d\n",
-  //        send_idx, arg_1, arg_3, arg_4);
-  
-  char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=send,%d,%d,%d,%d\n", send_idx, arg_1, arg_3, arg_4);
-  std::string buf_str = buf;
-  signatures.push_back(buf_str);
-  // Write callstack so we know how this send is being initiated. 
-  backtrace();
-  
-  send_idx++;
 }
     return _wrap_py_return_val;
 }
+
 /* ================== C Wrappers for MPI_Isend ================== */
 _EXTERN_C_ int PMPI_Isend(const void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, int arg_4, MPI_Comm arg_5, MPI_Request *arg_6);
 _EXTERN_C_ int MPI_Isend(const void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, int arg_4, MPI_Comm arg_5, MPI_Request *arg_6) { 
@@ -278,23 +380,6 @@ _EXTERN_C_ int MPI_Isend(const void *arg_0, int arg_1, MPI_Datatype arg_2, int a
  
 {
   _wrap_py_return_val = PMPI_Isend(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-
-  // Write properties of this send initiation to logfile 
-  // such that sender-nondeterminism can be detected by 
-  // comparing logs across multiple runs.
-  //fprintf(logfile_ptr, "is, rank=%d, idx=%d, count=%d, dtype=%d, dest=%d, tag=%d, comm=%d\n",
-  //        rank, isend_idx, arg_1, arg_2, arg_3, arg_4, arg_5);
-  //fprintf(logfile_ptr, "call=isend,%d,%d,%d,%d\n", isend_idx, arg_1, arg_3, arg_4);
-  
-  char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=isend,%d,%d,%d,%d\n", isend_idx, arg_1, arg_3, arg_4);
-  std::string buf_str = buf;
-  signatures.push_back(buf_str);
-  // Write callstack so we know how this send is being initiated. 
-  backtrace();
-  
-  
-  isend_idx++;
 }
     return _wrap_py_return_val;
 }
@@ -310,12 +395,6 @@ _EXTERN_C_ int MPI_Irecv(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, 
  
 {
   _wrap_py_return_val = PMPI_Irecv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-  //fprintf(logfile_ptr, "call=irecv,%d,%d,%d\n", arg_1, arg_3, arg_4);
-  char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=irecv,%d,%d,%d\n", arg_1, arg_3, arg_4);
-  std::string buf_str = buf;
-  signatures.push_back(buf_str);
-  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -326,12 +405,6 @@ _EXTERN_C_ int MPI_Recv(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, i
  
 {
   _wrap_py_return_val = PMPI_Recv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-  //fprintf(logfile_ptr, "call=recv,%d,%d,%d\n", arg_1, arg_3, arg_4);
-  char buf[256];
-  std::snprintf(buf, sizeof(buf), "call=recv,%d,%d,%d\n", arg_1, arg_3, arg_4);
-  std::string buf_str = buf;
-  signatures.push_back(buf_str);
-  backtrace();
 }
     return _wrap_py_return_val;
 }
@@ -347,37 +420,6 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 
 {
   _wrap_py_return_val = PMPI_Test(arg_0, arg_1, arg_2);
-  // Case: Matched test
-  if (*arg_1) {
-    // Subcase: Status fields filled
-    if (arg_2 != MPI_STATUS_IGNORE) {
-      //fprintf(logfile_ptr, "call=test,1,%d,%d,%d\n", test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
-      char buf[256];
-      std::snprintf(buf, sizeof(buf), "call=mtest,%d,%d,%d\n", test_idx, arg_2->MPI_SOURCE, arg_2->MPI_TAG);
-      std::string buf_str = buf;
-      signatures.push_back(buf_str);
-      backtrace();
-      
-      test_idx++;
-    }
-    // Subcase: Ignore status
-    else {
-      //fprintf(logfile_ptr, "mti,%d\n", test_idx);
-      //test_idx++;
-      //backtrace();
-    }
-  }
-  // Case: Unmatched test
-  else {
-    //fprintf(logfile_ptr, "call=test,0\n");
-    char buf[256];
-    std::snprintf(buf, sizeof(buf), "call=umtest,%d\n", test_idx);
-    std::string buf_str = buf;
-    signatures.push_back(buf_str);
-    
-    test_idx++;
-    //backtrace();
-  }
 }
     return _wrap_py_return_val;
 }
@@ -471,31 +513,17 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 //    return _wrap_py_return_val;
 //}
 //
-///* ================== C Wrappers for MPI_Waitall ================== */
-//_EXTERN_C_ int PMPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2);
-//_EXTERN_C_ int MPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Waitall(arg_0, arg_1, arg_2);
-//  int i;
-//  //if (arg_0 > 0) {
-//    if (arg_2 != MPI_STATUSES_IGNORE) {
-//      fprintf(logfile_ptr, "call=waitall,%d,%d", waitall_idx, arg_0);
-//      for (i=0; i<arg_0; i++) {
-//        if (0 <= arg_2[i].MPI_SOURCE < num_ranks) {
-//          fprintf(logfile_ptr, ",%d,%d", arg_2[i].MPI_SOURCE, arg_2[i].MPI_TAG);
-//        }
-//      }
-//      fprintf(logfile_ptr, "\n");
-//      waitall_idx++;
-//      backtrace();
-//    }
-//  //}
-//}
-//    return _wrap_py_return_val;
-//}
-//
+/* ================== C Wrappers for MPI_Waitall ================== */
+_EXTERN_C_ int PMPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2);
+_EXTERN_C_ int MPI_Waitall(int arg_0, MPI_Request *arg_1, MPI_Status *arg_2) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Waitall(arg_0, arg_1, arg_2);
+}
+    return _wrap_py_return_val;
+}
+
 ///* ================== C Wrappers for MPI_Waitany ================== */
 //_EXTERN_C_ int PMPI_Waitany(int arg_0, MPI_Request *arg_1, int *arg_2, MPI_Status *arg_3);
 //_EXTERN_C_ int MPI_Waitany(int arg_0, MPI_Request *arg_1, int *arg_2, MPI_Status *arg_3) { 
@@ -549,38 +577,27 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 
 
 
+///* ================== C Wrappers for MPI_Probe ================== */
+//_EXTERN_C_ int PMPI_Probe(int arg_0, int arg_1, MPI_Comm arg_2, MPI_Status *arg_3);
+//_EXTERN_C_ int MPI_Probe(int arg_0, int arg_1, MPI_Comm arg_2, MPI_Status *arg_3) { 
+//    int _wrap_py_return_val = 0;
+// 
+//{
+//  _wrap_py_return_val = PMPI_Probe(arg_0, arg_1, arg_2, arg_3);
+//}
+//    return _wrap_py_return_val;
+//}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Abandon all hope 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* ================== C Wrappers for MPI_Iprobe ================== */
+_EXTERN_C_ int PMPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_Status *arg_4);
+_EXTERN_C_ int MPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_Status *arg_4) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Iprobe(arg_0, arg_1, arg_2, flag, arg_4);
+}
+    return _wrap_py_return_val;
+}
 
 
 ///* ================== C Wrappers for MPI_Bsend ================== */
@@ -1023,17 +1040,6 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 ////    return _wrap_py_return_val;
 ////}
 ////
-/////* ================== C Wrappers for MPI_Comm_rank ================== */
-////_EXTERN_C_ int PMPI_Comm_rank(MPI_Comm arg_0, int *arg_1);
-////_EXTERN_C_ int MPI_Comm_rank(MPI_Comm arg_0, int *arg_1) { 
-////    int _wrap_py_return_val = 0;
-//// 
-////{
-////  _wrap_py_return_val = PMPI_Comm_rank(arg_0, arg_1);
-////}
-////    return _wrap_py_return_val;
-////}
-////
 /////* ================== C Wrappers for MPI_Comm_remote_group ================== */
 ////_EXTERN_C_ int PMPI_Comm_remote_group(MPI_Comm arg_0, MPI_Group *arg_1);
 ////_EXTERN_C_ int MPI_Comm_remote_group(MPI_Comm arg_0, MPI_Group *arg_1) { 
@@ -1063,17 +1069,6 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 //// 
 ////{
 ////  _wrap_py_return_val = PMPI_Comm_set_name(arg_0, arg_1);
-////}
-////    return _wrap_py_return_val;
-////}
-////
-/////* ================== C Wrappers for MPI_Comm_size ================== */
-////_EXTERN_C_ int PMPI_Comm_size(MPI_Comm arg_0, int *arg_1);
-////_EXTERN_C_ int MPI_Comm_size(MPI_Comm arg_0, int *arg_1) { 
-////    int _wrap_py_return_val = 0;
-//// 
-////{
-////  _wrap_py_return_val = PMPI_Comm_size(arg_0, arg_1);
 ////}
 ////    return _wrap_py_return_val;
 ////}
@@ -2170,18 +2165,6 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 ////    return _wrap_py_return_val;
 ////}
 ////
-/////* ================== C Wrappers for MPI_Iprobe ================== */
-////_EXTERN_C_ int PMPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_Status *arg_4);
-////_EXTERN_C_ int MPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_Status *arg_4) { 
-////    int _wrap_py_return_val = 0;
-//// 
-////{
-////  _wrap_py_return_val = PMPI_Iprobe(arg_0, arg_1, arg_2, flag, arg_4);
-////}
-////    return _wrap_py_return_val;
-////}
-////
-//
 /////* ================== C Wrappers for MPI_Keyval_create ================== */
 ////_EXTERN_C_ int PMPI_Keyval_create(MPI_Copy_function *arg_0, MPI_Delete_function *arg_1, int *arg_2, void *arg_3);
 ////_EXTERN_C_ int MPI_Keyval_create(MPI_Copy_function *arg_0, MPI_Delete_function *arg_1, int *arg_2, void *arg_3) { 
@@ -2255,17 +2238,6 @@ _EXTERN_C_ int MPI_Test(MPI_Request *arg_0, int *arg_1, MPI_Status *arg_2) {
 //// 
 ////{
 ////  _wrap_py_return_val = PMPI_Pcontrol(arg_0);
-////}
-////    return _wrap_py_return_val;
-////}
-////
-/////* ================== C Wrappers for MPI_Probe ================== */
-////_EXTERN_C_ int PMPI_Probe(int arg_0, int arg_1, MPI_Comm arg_2, MPI_Status *arg_3);
-////_EXTERN_C_ int MPI_Probe(int arg_0, int arg_1, MPI_Comm arg_2, MPI_Status *arg_3) { 
-////    int _wrap_py_return_val = 0;
-//// 
-////{
-////  _wrap_py_return_val = PMPI_Probe(arg_0, arg_1, arg_2, arg_3);
 ////}
 ////    return _wrap_py_return_val;
 ////}

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 MPICXX = mpicxx
 RM = rm -f
 
