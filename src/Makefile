@@ -1,16 +1,40 @@
-CXX = mpicxx
-CFLAGS = -g -fPIC -std=c++11
-INCLUDE = 
-LDFLAGS =
-LIBS = -lunwind 
+MPICXX = mpicxx
+RM = rm -f
 
-OBJ_DIR = /g/g17/chapp1/repos/csmpi/src/obj/
-BUILD_DIR = ../build/lib/
+CPPFLAGS = -fPIC -Wall -Werror -pedantic #-g
+CFLAGS = 
+CXXFLAGS = -std=c++17
+INCLUDES= -I. -I.. -I../include
+INCLUDES+= -I../include/external/
+INCLUDES+= -I../include/csmpi/
+INCLUDES+= -I/usr/tce/packages/boost/boost-1.69.0-mvapich2-2.3-gcc-4.9.3/include
 
-all:
-	$(CXX) $(CFLAGS) $(INCLUDE) -c csmpi.cpp -o $(OBJ_DIR)csmpi.o 
-	$(CXX) -shared -o $(BUILD_DIR)/libcsmpi.so $(OBJ_DIR)*.o $(LDFLAGS) $(LIBS)
+LDFLAGS = 
+LD_LIBRARY_FLAGS = -L/usr/tce/packages/boost/boost-1.69.0-mvapich2-2.3-gcc-4.9.3/lib
+LIBS = -lboost_mpi -lboost_serialization
+
+
+TEST_SOURCES = 
+TEST_SOURCES += test_broadcast_config.cpp
+#TEST_SOURCES += test_parse_config.cpp
+
+TEST_OBJECTS = $(TEST_SOURCES:.cpp=.o)
+TEST_TARGETS = $(TEST_SOURCES:.cpp=.exe)
+
+SOURCES = configuration.cpp
+OBJECTS = $(SOURCES:.cpp=.o)
+TARGET = libcsmpi.so
+
+all: $(TEST_TARGETS)
+
+$(TEST_TARGETS): $(TEST_OBJECTS) $(OBJECTS)
+	$(MPICXX) $(LDFLAGS) -o $@ $(TEST_OBJECTS) $(LD_LIBRARY_FLAGS) $(OBJECTS) $(LIBS)  
+
+%.o: %.cpp
+	$(MPICXX) $(CPPFLAGS) $(CXXFLAGS) $(INCLUDES) -c -o $@ $<
+
 
 clean:
-	rm $(OBJ_DIR)*
-	rm $(BUILD_DIR)*
+	$(RM) *.o
+	$(RM) *.so
+	$(RM) *.exe
