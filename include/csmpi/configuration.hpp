@@ -17,21 +17,24 @@ public:
   // Accessors and assignment operator needed for ingest-broadcast
   Configuration& operator=(const Configuration& rhs );
   std::unordered_map<std::string,int> get_fn_to_freq() const;
+  std::string get_trace_dir() const;
   std::string get_backtrace_impl() const;
   bool get_demangle_in_place() const;
   bool get_translate_in_place() const;
-  bool get_skip_unmatched() const;
+  bool get_trace_unmatched() const;
   void print() const;
 private:
   // Mapping from MPI function names to call-stack sampling frequency
   std::unordered_map<std::string,int> fn_to_freq;
+  // Directory that CSMPI trace files will be written to
+  std::string trace_dir;
   // Remaining member variables determine the "tracing policy" of CSMPI
   // Defaults are selected to minimize the amount of work CSMPI has to do at 
   // runtime, and correspondingly how much overhead it imposes.
   // Determines which backtrace implementation to use 
   std::string backtrace_impl;
   // Flag for whether to skip unmatched matching functions 
-  bool skip_unmatched = true;
+  bool trace_unmatched = false;
   // Flag for whether to demangle C++ function names at runtime
   bool demangle_in_place = false;
   // Flag for wether to translate return addresses to human-readable function 
@@ -44,8 +47,9 @@ private:
   void serialize( Archive& archive, const unsigned int version )
   {
     archive & fn_to_freq;
+    archive & trace_dir;
     archive & backtrace_impl;
-    archive & skip_unmatched;
+    archive & trace_unmatched;
     archive & demangle_in_place;
     archive & translate_in_place;
   }

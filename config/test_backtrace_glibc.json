@@ -1,0 +1,13 @@
+{
+    "mpi_functions" :
+    [
+        { "name" : "dummy_func_A", "freq" : 0},
+        { "name" : "dummy_func_B", "freq" : 0},
+        { "name" : "dummy_func_C", "freq" : 0}
+    ],
+    "trace_dir" : "/p/lscratchh/chapp1/csmpi_testing/csmpi_traces/",
+    "backtrace_impl" : "glibc",
+    "trace_unmatched" : false,
+    "demangle_in_place" : false,
+    "translate_in_place" : false
+}

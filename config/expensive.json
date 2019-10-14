@@ -1,0 +1,21 @@
+{
+    "mpi_functions" :
+    [
+        { "name" : "MPI_Send", "freq" : 100},
+        { "name" : "MPI_Isend", "freq" : 100},
+        { "name" : "MPI_Recv", "freq" : 100},
+        { "name" : "MPI_Wait", "freq" : 100},
+        { "name" : "MPI_Waitany", "freq" : 100},
+        { "name" : "MPI_Waitsome", "freq" : 100},
+        { "name" : "MPI_Waitall", "freq" : 100},
+        { "name" : "MPI_Test", "freq" : 100},
+        { "name" : "MPI_Testany", "freq" : 100},
+        { "name" : "MPI_Testsome", "freq" : 100},
+        { "name" : "MPI_Testall", "freq" : 100}
+    ],
+    "trace_dir" : "/p/lscratchh/chapp1/csmpi_testing/csmpi_traces/",
+    "backtrace_impl" : "libunwind",
+    "trace_unmatched" : false,
+    "demangle_in_place" : true,
+    "translate_in_place" : true
+}

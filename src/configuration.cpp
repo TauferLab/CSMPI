@@ -24,10 +24,12 @@ Configuration::Configuration( const std::string config_file_path )
   for ( auto elem : mpi_functions ) {
     fn_to_freq.insert( { elem["name"], (int)elem["freq"] } );
   }
+  // Set trace directory
+  trace_dir = config_json["trace_dir"];
   // Set backtrace implementation to use 
   backtrace_impl = config_json["backtrace_impl"];
   // Set tracing policy flags
-  skip_unmatched = config_json["skip_unmatched"];
+  trace_unmatched = config_json["trace_unmatched"];
   demangle_in_place = config_json["demangle_in_place"];
   translate_in_place = config_json["translate_in_place"];
 }
@@ -63,11 +65,12 @@ Configuration& Configuration::operator=( const Configuration& rhs )
   if ( &rhs == this ) {
     return *this;
   }
-  this->fn_to_freq = rhs.get_fn_to_freq();
-  this->backtrace_impl = rhs.get_backtrace_impl();
-  this->demangle_in_place = rhs.get_demangle_in_place();
+  this->fn_to_freq         = rhs.get_fn_to_freq();
+  this->trace_dir          = rhs.get_trace_dir();
+  this->backtrace_impl     = rhs.get_backtrace_impl();
+  this->demangle_in_place  = rhs.get_demangle_in_place();
   this->translate_in_place = rhs.get_translate_in_place();
-  this->skip_unmatched = rhs.get_skip_unmatched();
+  this->trace_unmatched     = rhs.get_trace_unmatched();
   return *this;
 }
 
@@ -76,14 +79,19 @@ std::unordered_map<std::string,int> Configuration::get_fn_to_freq() const
   return this->fn_to_freq;
 }
 
+std::string Configuration::get_trace_dir() const
+{
+  return this->trace_dir;
+}
+
 std::string Configuration::get_backtrace_impl() const
 {
   return this->backtrace_impl;
 }
 
-bool Configuration::get_skip_unmatched() const
+bool Configuration::get_trace_unmatched() const
 {
-  return this->skip_unmatched;
+  return this->trace_unmatched;
 }
 
 bool Configuration::get_demangle_in_place() const
@@ -106,10 +114,11 @@ void Configuration::print() const
               << ", Frequency: " << kvp.second 
               << std::endl;
   }
+  std::cout << "Trace Directory: " << trace_dir << std::endl;
   std::cout << "Tracing Policy:" << std::endl;
   std::cout << "Backtrace Implementation: " << backtrace_impl << std::endl;
   std::cout << std::boolalpha 
-            << "Skip unmatched tests? " << skip_unmatched 
+            << "Trace unmatched tests? " << trace_unmatched 
             << std::endl;
   std::cout << "Demangle C++ Function Names in Place? " << demangle_in_place
             << std::endl;
