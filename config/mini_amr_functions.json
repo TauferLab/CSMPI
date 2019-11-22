@@ -1,0 +1,6 @@
+{ 
+    "MPI_Send" : 0
+    "MPI_Isend" : 0
+    "MPI_Wait" : 0
+    "MPI_Waitany" : 0
+}

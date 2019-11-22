@@ -25,8 +25,15 @@ default_mpi_fns = [ "MPI_Send",
                   ]
 
 
-def main( output, trace_dir, function_to_freq_file, trace_unmatched, translate_in_place, demangle_in_place ):
+def main( output, 
+          trace_dir, 
+          function_to_freq_file, 
+          backtrace_impl,
+          trace_unmatched, 
+          translate_in_place, 
+          demangle_in_place ):
     # Grab default functions and frequencies if none are specified
+
     if function_to_freq_file == None:
         function_to_freq = { fn:0 for fn in default_mpi_fns }
     else:
@@ -38,6 +45,7 @@ def main( output, trace_dir, function_to_freq_file, trace_unmatched, translate_i
     for fn,freq in function_to_freq.items():
         config[ "mpi_functions" ].append( { "name":fn, "freq":freq } )
     config["trace_dir"] = trace_dir
+    config["backtrace_impl"] = backtrace_impl
     config["trace_unmatched"] = trace_unmatched
     config["translate_in_place"] = translate_in_place
     config["demangle_in_place"] = demangle_in_place
@@ -55,6 +63,8 @@ if __name__ == "__main__":
                         help="A JSON file containing a list of MPI functions to trace and their associated tracing frequencies")
     parser.add_argument("-d", "--trace_dir", required=True,
                         help="The directory that CSMPI should write its trace files to")
+    parser.add_argument("-b", "--backtrace_impl", required=False, default="glibc",
+                        help="The call-stack unwinding implementation CSMPI should use")
     parser.add_argument("-u", "--trace_unmatched", default=False, action="store_true",
                         help="CSMPI should trace call stacks even for unmatched test and probe functions")
     parser.add_argument("-t", "--translate_in_place", default=False, action="store_true",
@@ -66,6 +76,7 @@ if __name__ == "__main__":
     main( args.output, 
           args.trace_dir, 
           args.functions, 
+          args.backtrace_impl,
           args.trace_unmatched, 
           args.translate_in_place, 
           args.demangle_in_place )
