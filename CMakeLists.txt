@@ -16,9 +16,7 @@ target_include_directories(csmpi PRIVATE ${Boost_INCLUDE_DIR})
 target_link_libraries(csmpi PRIVATE Boost::mpi)
 target_link_libraries(csmpi PRIVATE Boost::serialization)
 
-# Libunwind (Hardcoded until I can get FindLibunwind.cmake working)
-#find_package(Libunwind REQUIRED)
-#target_include_directories(csmpi PRIVATE ${LIBUNWIND_INCLUDE_DIR})
-target_include_directories(csmpi PRIVATE /home/dchapp/repos/spack/opt/spack/linux-rhel7-power9le/gcc-9.2.0/libunwind-1.2.1-ym25jg4lvtqbouwatk2tdz7bapjsklcb/include/)
-target_link_libraries(csmpi PRIVATE /home/dchapp/repos/spack/opt/spack/linux-rhel7-power9le/gcc-9.2.0/libunwind-1.2.1-ym25jg4lvtqbouwatk2tdz7bapjsklcb/lib64/libunwind.so)
-
+# Libunwind 
+find_package(Libunwind REQUIRED)
+target_include_directories(csmpi PRIVATE ${LIBUNWIND_INCLUDE_DIR})
+target_link_libraries(csmpi PRIVATE ${LIBUNWIND_LIBRARIES})
