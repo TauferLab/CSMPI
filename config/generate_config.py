@@ -32,8 +32,9 @@ def main( output,
           trace_unmatched, 
           translate_in_place, 
           demangle_in_place ):
-    # Grab default functions and frequencies if none are specified
-
+    # Use default functions (see above "default_mpi_fns") and set sampling
+    # frequency to max (i.e., trace every call) if no function_to_frequency
+    # file is provided
     if function_to_freq_file == None:
         function_to_freq = { fn:0 for fn in default_mpi_fns }
     else:
