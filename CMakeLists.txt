@@ -11,7 +11,7 @@ target_sources(csmpi PRIVATE src/csmpi.cpp src/configuration.cpp src/runtime.cpp
 target_include_directories(csmpi PRIVATE include include/csmpi include/external)
 
 # Boost
-find_package(Boost 1.70.0 REQUIRED mpi serialization)
+find_package(Boost 1.69.0 REQUIRED mpi serialization)
 target_include_directories(csmpi PRIVATE ${Boost_INCLUDE_DIR})
 target_link_libraries(csmpi PRIVATE Boost::mpi)
 target_link_libraries(csmpi PRIVATE Boost::serialization)
