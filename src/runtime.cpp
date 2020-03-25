@@ -54,6 +54,7 @@ void csmpi_finalize( Runtime* runtime_ptr )
   int mpi_rc, rank;
   mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
   if ( rank == 0 ) {
+    std::cout << "Backtrace total elapsed time: " << runtime_ptr->get_backtrace_elapsed_time() << std::endl;
     std::cout << "CSMPI Runtime shutting down..." << std::endl;
   }
   mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
@@ -74,6 +75,11 @@ Runtime::Runtime( Configuration config )
     std::vector< std::pair<size_t, Callstack> > callstack_seq;
     fn_to_callstacks.insert( { fn_name, callstack_seq } );
   } 
+}
+
+double Runtime::get_backtrace_elapsed_time() const
+{
+  return this->m_backtrace_elapsed_time;
 }
 
 void Runtime::start_timer()
@@ -161,7 +167,8 @@ void Runtime::trace_callstack( std::string fn_name )
       trace_call = true;
     }
   }
-
+  
+  auto backtrace_start_time = std::chrono::steady_clock::now();
   if ( trace_call ) {
     Callstack cs;
     // Get callstack using config-specified backtrace implementation
@@ -181,6 +188,9 @@ void Runtime::trace_callstack( std::string fn_name )
     // Update the index at which we most recently traced this function
     fn_to_last[ fn_name ] = fn_to_count[ fn_name ];
   }
+  auto backtrace_end_time = std::chrono::steady_clock::now();
+  std::chrono::duration<double> backtrace_elapsed_time = backtrace_end_time - backtrace_start_time;
+  m_backtrace_elapsed_time += backtrace_elapsed_time.count();
 
   // Update number of times we've seen this function called
   fn_to_count[ fn_name ] = fn_to_count[ fn_name ] + 1;
