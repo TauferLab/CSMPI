@@ -1,0 +1,12 @@
+{
+    "mpi_functions" :
+    [
+        { "name" : "MPI_Send", "freq" : 0},
+        { "name" : "MPI_Recv", "freq" : 0}
+    ],
+    "trace_dir" : "/g/g12/chapp1/Src_CSMPI/test/csmpi",
+    "backtrace_impl" : "glibc",
+    "trace_unmatched" : false,
+    "demangle_in_place" : false,
+    "translate_in_place" : false
+}
