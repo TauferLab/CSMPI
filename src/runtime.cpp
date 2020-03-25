@@ -51,16 +51,18 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 
 void csmpi_finalize( Runtime* runtime_ptr )
 {
+  runtime_ptr->write_trace();
   int mpi_rc, rank;
   mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  double send_buffer[2] = { runtime_ptr->get_backtrace_elapsed_time(), runtime_ptr->get_write_log_elapsed_time() };
+  double recv_buffer[2] = { 0.0, 0.0 };
+  mpi_rc = MPI_Reduce( &send_buffer, &recv_buffer, 2, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD );
   if ( rank == 0 ) {
-    std::cout << "Backtrace total elapsed time: " << runtime_ptr->get_backtrace_elapsed_time() << std::endl;
+    std::cout << "Backtrace total elapsed time: " << recv_buffer[0] << std::endl;
+    std::cout << "Write log total elapsed time: " << recv_buffer[1] << std::endl;
     std::cout << "CSMPI Runtime shutting down..." << std::endl;
   }
   mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
-
-  runtime_ptr->write_trace();
-
   delete runtime_ptr;
 }
 
@@ -82,20 +84,25 @@ double Runtime::get_backtrace_elapsed_time() const
   return this->m_backtrace_elapsed_time;
 }
 
-void Runtime::start_timer()
+double Runtime::get_write_log_elapsed_time() const 
 {
-  trace_start_time = std::chrono::steady_clock::now();
+  return this->m_write_log_elapsed_time;
 }
 
-void Runtime::stop_timer()
-{
-  auto elapsed = std::chrono::steady_clock::now() - trace_start_time;
-  const unsigned int msecs = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-  int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-  std::cout << "Rank: " << rank << " elapsed time: " << msecs << " ms" << std::endl;
-  mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
-}
+//void Runtime::start_timer()
+//{
+//  trace_start_time = std::chrono::steady_clock::now();
+//}
+//
+//void Runtime::stop_timer()
+//{
+//  auto elapsed = std::chrono::steady_clock::now() - trace_start_time;
+//  const unsigned int msecs = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+//  int mpi_rc, rank;
+//  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+//  std::cout << "Rank: " << rank << " elapsed time: " << msecs << " ms" << std::endl;
+//  mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
+//}
 
 
 bool Runtime::trace_unmatched() const
@@ -278,8 +285,9 @@ Callstack Runtime::backtrace_glibc()
 }
 
 
-void Runtime::write_trace() const
+void Runtime::write_trace() 
 {
+  auto start_time = std::chrono::steady_clock::now();
   // Open a trace file for this rank
   int mpi_rc, rank;
   mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -303,4 +311,9 @@ void Runtime::write_trace() const
   }
   int fclose_rc; 
   fclose_rc = std::fclose( trace_file );
+  auto stop_time = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_time = stop_time - start_time;
+  this->m_write_log_elapsed_time = elapsed_time.count();
+  //std::cout << "Rank: " << rank << " write log time: " << elapsed_time.count() << std::endl;
+  //std::cout << "Rank: " << rank << " m_write_log_elapsed_time: " << m_write_log_elapsed_time << std::endl;
 }

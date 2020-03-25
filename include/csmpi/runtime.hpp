@@ -17,19 +17,21 @@ public:
   bool trace_unmatched() const;
   Callstack backtrace_libunwind();
   Callstack backtrace_glibc();
-  void write_trace() const;
+  void write_trace();
   void print() const;
-  void start_timer();
-  void stop_timer();
+  //void start_timer();
+  //void stop_timer();
   double get_backtrace_elapsed_time() const;
+  double get_write_log_elapsed_time() const;
 private:
   Configuration config;
   std::unordered_map<std::string, size_t> fn_to_count;
   std::unordered_map<std::string, size_t> fn_to_last;
   std::unordered_map<std::string, int> fn_to_freq;
   std::unordered_map<std::string, std::vector< std::pair<size_t, Callstack> > > fn_to_callstacks;
-  std::chrono::time_point<std::chrono::steady_clock> trace_start_time;
+  //std::chrono::time_point<std::chrono::steady_clock> trace_start_time;
   double m_backtrace_elapsed_time{0};
+  double m_write_log_elapsed_time{0};
 };
 
 Runtime* csmpi_init( Runtime* runtime_ptr );
