@@ -7,6 +7,23 @@
 
 #include "callstack.hpp"
 
+bool Callstack::operator==(const Callstack& rhs) const
+{
+  auto lhs_n_frames = this->frames.size();
+  auto rhs_frames = rhs.get_frames();
+  auto rhs_n_frames = rhs_frames.size();
+  if ( lhs_n_frames != rhs_n_frames ) {
+    return false;
+  } else {
+    for (int i=0; i<lhs_n_frames; ++i) {
+      if (this->frames[i] != rhs_frames[i]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 void Callstack::add_frame( unw_word_t frame )
 {
   frames.push_back(frame);

@@ -19,8 +19,6 @@ public:
   Callstack backtrace_glibc();
   void write_trace();
   void print() const;
-  //void start_timer();
-  //void stop_timer();
   double get_backtrace_elapsed_time() const;
   double get_write_log_elapsed_time() const;
 private:
@@ -28,8 +26,10 @@ private:
   std::unordered_map<std::string, size_t> fn_to_count;
   std::unordered_map<std::string, size_t> fn_to_last;
   std::unordered_map<std::string, int> fn_to_freq;
-  std::unordered_map<std::string, std::vector< std::pair<size_t, Callstack> > > fn_to_callstacks;
-  //std::chrono::time_point<std::chrono::steady_clock> trace_start_time;
+  size_t m_callstack_id{0};
+  std::unordered_map<Callstack, size_t, CallstackHash> callstack_to_id;
+  std::unordered_map<size_t, Callstack> id_to_callstack;
+  std::unordered_map<std::string, std::vector< std::pair<size_t, size_t> > > fn_to_callstack_id_seq;
   double m_backtrace_elapsed_time{0};
   double m_write_log_elapsed_time{0};
 };

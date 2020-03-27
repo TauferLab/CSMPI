@@ -74,8 +74,8 @@ Runtime::Runtime( Configuration config )
     auto tracing_frequency = fn_freq_pair.second;
     fn_to_count.insert( { fn_name, 0 } );
     fn_to_freq.insert( { fn_name, tracing_frequency } );
-    std::vector< std::pair<size_t, Callstack> > callstack_seq;
-    fn_to_callstacks.insert( { fn_name, callstack_seq } );
+    std::vector< std::pair<size_t, size_t> > callstack_id_seq;
+    fn_to_callstack_id_seq.insert( { fn_name, callstack_id_seq } );
   } 
 }
 
@@ -89,71 +89,11 @@ double Runtime::get_write_log_elapsed_time() const
   return this->m_write_log_elapsed_time;
 }
 
-//void Runtime::start_timer()
-//{
-//  trace_start_time = std::chrono::steady_clock::now();
-//}
-//
-//void Runtime::stop_timer()
-//{
-//  auto elapsed = std::chrono::steady_clock::now() - trace_start_time;
-//  const unsigned int msecs = std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-//  int mpi_rc, rank;
-//  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-//  std::cout << "Rank: " << rank << " elapsed time: " << msecs << " ms" << std::endl;
-//  mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
-//}
-
-
 bool Runtime::trace_unmatched() const
 {
   return this->config.get_trace_unmatched();
 }
 
-// Convenience function to print the current state of the CSMPI runtime
-void Runtime::print() const
-{
-  int mpi_rc, flag;
-  mpi_rc = MPI_Initialized( &flag );
-  if ( flag ) {
-    int rank;
-    mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-    std::cout << "Rank: " << rank << " CSMPI Runtime State:" << std::endl;
-  }
-  std::cout << "Counts of function calls observed so far:" << std::endl;
-  for ( auto kvp : fn_to_count ) {
-    std::cout << "Function: " << kvp.first 
-              << ", # Seen So Far: " << kvp.second
-              << std::endl;
-  }
-  std::cout << "Numerical Index of last-seen instance of function calls:" << std::endl;
-  for ( auto kvp : fn_to_last ) {
-    std::cout << "Function: " << kvp.first 
-              << ", Index: " << kvp.second
-              << std::endl;
-  }
-  std::cout << "Tracing Frequencies for each Function" << std::endl;
-  for ( auto kvp : fn_to_freq ) {
-    std::cout << "Function: " << kvp.first 
-              << ", Frequency: " << kvp.second
-              << std::endl;
-  }
-  std::cout << "Callstacks for each function so far:" << std::endl;
-  for ( auto kvp : fn_to_callstacks ) {
-    std::cout << "Function: " << kvp.first << std::endl;
-    for ( auto pair : kvp.second ) {
-      auto idx = pair.first;
-      auto callstack = pair.second;
-      // Print the index of the callstack (i.e., "this is the nth callstack"
-      std::printf("%lu, ", idx); 
-      // Print the callstack itself 
-      for ( auto frame : callstack.get_frames() ) {
-        std::printf("0x%lx ", frame);
-      }
-      std::printf("\n");
-    }
-  }
-}
 
 
 void Runtime::trace_callstack( std::string fn_name )
@@ -177,10 +117,9 @@ void Runtime::trace_callstack( std::string fn_name )
   
   auto backtrace_start_time = std::chrono::steady_clock::now();
   if ( trace_call ) {
-    Callstack cs;
     // Get callstack using config-specified backtrace implementation
+    Callstack cs;
     auto impl = config.get_backtrace_impl();
-
     if ( impl == "libunwind" ) {
       cs = backtrace_libunwind();
     } 
@@ -188,9 +127,21 @@ void Runtime::trace_callstack( std::string fn_name )
       cs = backtrace_glibc();
     }
 
+    // Update table of known callstacks
+    size_t curr_callstack_id;
+    auto search = callstack_to_id.find(cs);
+    if ( search == callstack_to_id.end() ) {
+      curr_callstack_id = m_callstack_id;
+      m_callstack_id++;
+      callstack_to_id.insert( { cs, curr_callstack_id } );
+      id_to_callstack.insert( { curr_callstack_id, cs } );
+    } else {
+      curr_callstack_id = search->second;
+    }
+
     // Store callstack
-    auto callstack = std::make_pair( fn_to_count[ fn_name ], cs );
-    fn_to_callstacks[ fn_name ].push_back( callstack );
+    auto callstack_id = std::make_pair( fn_to_count[ fn_name ], curr_callstack_id );
+    fn_to_callstack_id_seq[ fn_name ].push_back( callstack_id );
     
     // Update the index at which we most recently traced this function
     fn_to_last[ fn_name ] = fn_to_count[ fn_name ];
@@ -294,12 +245,12 @@ void Runtime::write_trace()
   std::string trace_file_path = config.get_trace_dir() + "/rank_" + std::to_string(rank) + ".csmpi";
   FILE* trace_file = std::fopen( trace_file_path.c_str(), "w" );
   // Iterate over function call types
-  for ( auto kvp : fn_to_callstacks ) {
+  for ( auto kvp : fn_to_callstack_id_seq ) {
     std::fprintf(trace_file, "Callstacks for MPI Function: %s\n", kvp.first.c_str() );
     // Iterate over sequence of traced calls of this type
-    for ( auto idx_callstack_pair : kvp.second ) {
-      auto idx = idx_callstack_pair.first;
-      auto callstack = idx_callstack_pair.second;
+    for ( auto idx_callstack_id_pair : kvp.second ) {
+      auto idx = idx_callstack_id_pair.first;
+      auto callstack = id_to_callstack.at( idx_callstack_id_pair.second );
       // Print the index of the callstack (i.e., "this is the nth callstack"
       std::fprintf(trace_file, "%lu, ", idx); 
       // Print the callstack itself 
@@ -314,6 +265,49 @@ void Runtime::write_trace()
   auto stop_time = std::chrono::steady_clock::now();
   std::chrono::duration<double> elapsed_time = stop_time - start_time;
   this->m_write_log_elapsed_time = elapsed_time.count();
-  //std::cout << "Rank: " << rank << " write log time: " << elapsed_time.count() << std::endl;
-  //std::cout << "Rank: " << rank << " m_write_log_elapsed_time: " << m_write_log_elapsed_time << std::endl;
+}
+
+// Convenience function to print the current state of the CSMPI runtime
+void Runtime::print() const
+{
+  int mpi_rc, flag;
+  mpi_rc = MPI_Initialized( &flag );
+  if ( flag ) {
+    int rank;
+    mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+    std::cout << "Rank: " << rank << " CSMPI Runtime State:" << std::endl;
+  }
+  std::cout << "Counts of function calls observed so far:" << std::endl;
+  for ( auto kvp : fn_to_count ) {
+    std::cout << "Function: " << kvp.first 
+              << ", # Seen So Far: " << kvp.second
+              << std::endl;
+  }
+  std::cout << "Numerical Index of last-seen instance of function calls:" << std::endl;
+  for ( auto kvp : fn_to_last ) {
+    std::cout << "Function: " << kvp.first 
+              << ", Index: " << kvp.second
+              << std::endl;
+  }
+  std::cout << "Tracing Frequencies for each Function" << std::endl;
+  for ( auto kvp : fn_to_freq ) {
+    std::cout << "Function: " << kvp.first 
+              << ", Frequency: " << kvp.second
+              << std::endl;
+  }
+  std::cout << "Callstacks for each function so far:" << std::endl;
+  for ( auto kvp : fn_to_callstack_id_seq ) {
+    std::cout << "Function: " << kvp.first << std::endl;
+    for ( auto pair : kvp.second ) {
+      auto idx = pair.first;
+      auto callstack_id_seq = pair.second;
+      // Print the index of the callstack (i.e., "this is the nth callstack"
+      std::printf("%lu, ", idx); 
+      // Print the callstack itself 
+      for ( auto frame : id_to_callstack.at(callstack_id_seq).get_frames() ) {
+        std::printf("0x%lx ", frame);
+      }
+      std::printf("\n");
+    }
+  }
 }
