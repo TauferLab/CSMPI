@@ -23,5 +23,3 @@ echo "Running with glibc backtrace implementation"
 time LD_PRELOAD=${csmpi_lib} CSMPI_CONFIG="./config/test_ping_pong_glibc.json" srun -N1 -n2 ${test_bin} ${n_messages}
 echo "Running with libunwind backtrace implementation"
 time LD_PRELOAD=${csmpi_lib} CSMPI_CONFIG="./config/test_ping_pong_libunwind.json" srun -N1 -n2 ${test_bin} ${n_messages}
-echo "Running with libunwind backtrace implementation + in-place address translation (VERY SLOW. GENERALLY SPEAKING DO NOT DO THIS.)"
-time LD_PRELOAD=${csmpi_lib} CSMPI_CONFIG="./config/test_ping_pong_libunwind_translate.json" srun -N1 -n2 ${test_bin} ${n_messages}

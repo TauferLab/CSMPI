@@ -4,7 +4,7 @@
         { "name" : "MPI_Send", "freq" : 0},
         { "name" : "MPI_Recv", "freq" : 0}
     ],
-    "trace_dir" : "/g/g12/chapp1/Src_CSMPI/test/csmpi",
+    "trace_dir" : "/g/g12/chapp1/Src_CSMPI/test/csmpi_libunwind",
     "backtrace_impl" : "libunwind",
     "trace_unmatched" : false,
     "demangle_in_place" : false,
