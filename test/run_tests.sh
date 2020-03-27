@@ -15,6 +15,11 @@ csmpi_lib=${build_dir}/libcsmpi.so
 # Test executable
 test_bin=${build_dir}/ping_pong_test
 
+# Clean up logs from previous tests
+echo "Removing old logs"
+rm -f ./csmpi_glibc/*
+rm -f ./csmpi_libunwind/*
+
 # Run ping-pong test
 echo "Running ping-pong test with # messages = ${n_messages}"
 echo "Running without CSMPI"
