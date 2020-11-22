@@ -38,6 +38,12 @@ _EXTERN_C_ int MPI_Init(int *arg_0, char ***arg_1) {
 {
   _wrap_py_return_val = PMPI_Init(arg_0, arg_1);
   runtime_ptr = csmpi_init( runtime_ptr );
+  
+  int mpi_rc, rank;
+  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    runtime_ptr->print();
+  }
   //runtime_ptr->start_timer();
 }
     return _wrap_py_return_val;
@@ -51,6 +57,11 @@ _EXTERN_C_ int MPI_Init_thread(int *arg_0, char ***arg_1, int arg_2, int *arg_3)
 {
   _wrap_py_return_val = PMPI_Init_thread(arg_0, arg_1, arg_2, arg_3);
   runtime_ptr = csmpi_init( runtime_ptr );
+  int mpi_rc, rank;
+  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    runtime_ptr->print();
+  }
   //runtime_ptr->start_timer();
 }
     return _wrap_py_return_val;
@@ -63,6 +74,11 @@ _EXTERN_C_ int MPI_Finalize() {
  
 {
   //runtime_ptr->stop_timer();
+  int mpi_rc, rank;
+  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  if (rank == 0) {
+    runtime_ptr->print();
+  }
   csmpi_finalize( runtime_ptr ); 
   _wrap_py_return_val = PMPI_Finalize();
 }
