@@ -74,6 +74,7 @@ Runtime::Runtime( Configuration config )
     auto tracing_frequency = fn_freq_pair.second;
     fn_to_count.insert( { fn_name, 0 } );
     fn_to_freq.insert( { fn_name, tracing_frequency } );
+    fn_to_last.insert( { fn_name, 0 } );
     std::vector< std::pair<size_t, size_t> > callstack_id_seq;
     fn_to_callstack_id_seq.insert( { fn_name, callstack_id_seq } );
   } 
@@ -95,25 +96,34 @@ bool Runtime::trace_unmatched() const
 }
 
 
+bool Runtime::should_trace(std::string fn_name) const {
+  // Only trace if a tracing frequency is given for this function
+  auto search = fn_to_freq.find(fn_name);
+  if (search != fn_to_freq.end()) {
+    // If the tracing frequency is set to 0, trace every call
+    if (fn_to_freq.at(fn_name)) {
+      return true;
+    } 
+    else {
+      // If we are tracing this function at some different frequency, 
+      // always trace the first call
+      if ( fn_to_count.at(fn_name) == 0 ) {
+        return true; 
+      }
+      // And trace if the we are on an instance of the function call that 
+      // should be traced according to the set frequency for this function
+      else if (fn_to_count.at(fn_name) == fn_to_last.at(fn_name) + fn_to_freq.at(fn_name)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 
 void Runtime::trace_callstack( std::string fn_name )
 {
-  // First, determine if we're actually going to trace this call
-  // Always trace the first invocation of an MPI function in the map
-  bool trace_call = false;
-  // Disable tracing for this function if frequency is negative
-  if ( fn_to_freq[ fn_name ] >= 0 ) {
-    // If we are tracing this function at all, always trace the first call
-    if ( fn_to_count[ fn_name ] == 0 ) {
-      trace_call = true; 
-    }
-    else if ( fn_to_count[ fn_name ] == fn_to_last[ fn_name ] + fn_to_freq[ fn_name ] ) {
-      trace_call = true;
-    }
-    else if ( fn_to_freq[ fn_name ] == 0 ) {
-      trace_call = true;
-    }
-  }
+  const auto trace_call = should_trace(fn_name);
   
   auto backtrace_start_time = std::chrono::steady_clock::now();
   if ( trace_call ) {
@@ -140,18 +150,23 @@ void Runtime::trace_callstack( std::string fn_name )
     }
 
     // Store callstack
-    auto callstack_id = std::make_pair( fn_to_count[ fn_name ], curr_callstack_id );
-    fn_to_callstack_id_seq[ fn_name ].push_back( callstack_id );
+    auto callstack_id = std::make_pair( fn_to_count.at(fn_name), curr_callstack_id );
+    fn_to_callstack_id_seq.at(fn_name).push_back( callstack_id );
     
     // Update the index at which we most recently traced this function
-    fn_to_last[ fn_name ] = fn_to_count[ fn_name ];
+    fn_to_last.at(fn_name) = fn_to_count.at(fn_name);
   }
+  
+  // Track how long this tracing event took
   auto backtrace_end_time = std::chrono::steady_clock::now();
   std::chrono::duration<double> backtrace_elapsed_time = backtrace_end_time - backtrace_start_time;
   m_backtrace_elapsed_time += backtrace_elapsed_time.count();
 
   // Update number of times we've seen this function called
-  fn_to_count[ fn_name ] = fn_to_count[ fn_name ] + 1;
+  auto search = fn_to_freq.find(fn_name);
+  if (search != fn_to_freq.end()) {
+    fn_to_count.at(fn_name) = fn_to_count.at(fn_name) + 1;
+  }
 }
 
 
@@ -294,20 +309,5 @@ void Runtime::print() const
     std::cout << "Function: " << kvp.first 
               << ", Frequency: " << kvp.second
               << std::endl;
-  }
-  std::cout << "Callstacks for each function so far:" << std::endl;
-  for ( auto kvp : fn_to_callstack_id_seq ) {
-    std::cout << "Function: " << kvp.first << std::endl;
-    for ( auto pair : kvp.second ) {
-      auto idx = pair.first;
-      auto callstack_id_seq = pair.second;
-      // Print the index of the callstack (i.e., "this is the nth callstack"
-      std::printf("%lu, ", idx); 
-      // Print the callstack itself 
-      for ( auto frame : id_to_callstack.at(callstack_id_seq).get_frames() ) {
-        std::printf("0x%lx ", frame);
-      }
-      std::printf("\n");
-    }
   }
 }

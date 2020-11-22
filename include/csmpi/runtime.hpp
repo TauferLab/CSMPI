@@ -21,6 +21,7 @@ public:
   void print() const;
   double get_backtrace_elapsed_time() const;
   double get_write_log_elapsed_time() const;
+  bool should_trace(std::string fn_name) const;
 private:
   Configuration config;
   std::unordered_map<std::string, size_t> fn_to_count;
