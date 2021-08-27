@@ -17,7 +17,9 @@
 
 // Callstack tracing via libunwind
 #define UNW_LOCAL_ONLY
-#include <libunwind.h>
+#ifdef DET_LIBUNWIND
+	#include <libunwind.h>
+#endif
 #include <cxxabi.h>
 
 // Callstack tracing via glibc backtrace

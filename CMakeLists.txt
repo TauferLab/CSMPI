@@ -21,6 +21,10 @@ target_link_libraries(csmpi PRIVATE Boost::mpi)
 target_link_libraries(csmpi PRIVATE Boost::serialization)
 
 # Libunwind 
-find_package(Libunwind REQUIRED)
-target_include_directories(csmpi PRIVATE ${LIBUNWIND_INCLUDE_DIR})
-target_link_libraries(csmpi PRIVATE ${LIBUNWIND_LIBRARIES})
+set(USE_LIBUNWIND ON CACHE BOOL "")
+if(USE_LIBUNWIND)
+        add_definitions(-DDET_LIBUNWIND)
+	find_package(Libunwind REQUIRED)
+	target_include_directories(csmpi PRIVATE ${LIBUNWIND_INCLUDE_DIR})
+	target_link_libraries(csmpi PRIVATE ${LIBUNWIND_LIBRARIES})
+endif()

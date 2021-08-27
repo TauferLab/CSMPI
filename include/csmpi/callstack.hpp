@@ -13,10 +13,10 @@ public:
   Callstack& operator=( const Callstack& rhs );
   void add_frame( unw_word_t frame );
   void print() const;
-  std::vector<unw_word_t> get_frames() const;
+  std::vector<uint64_t> get_frames() const;
   bool operator==(const Callstack& c) const;
 private:
-  std::vector<unw_word_t> frames;
+  std::vector<uint64_t> frames;
 };
 
 struct CallstackHash 
