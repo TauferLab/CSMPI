@@ -15,7 +15,9 @@ public:
   Runtime( Configuration config );
   void trace_callstack( std::string fn_name );
   bool trace_unmatched() const;
+#ifdef DET_LIBUNWIND
   Callstack backtrace_libunwind();
+#endif
   Callstack backtrace_glibc();
   void write_trace();
   void print() const;

@@ -132,12 +132,14 @@ void Runtime::trace_callstack( std::string fn_name )
     // Get callstack using config-specified backtrace implementation
     Callstack cs;
     auto impl = config.get_backtrace_impl();
+#ifdef DET_LIBUNWIND
     if ( impl == "libunwind" ) {
       cs = backtrace_libunwind();
     } 
     else if ( impl == "glibc" ) {
       cs = backtrace_glibc();
     }
+#endif
 
     // Update table of known callstacks
     size_t curr_callstack_id;
@@ -176,6 +178,7 @@ void Runtime::trace_callstack( std::string fn_name )
 // Get the callstack using libunwind
 // Many thanks to Eli Bendersky's invaluable web presence 
 // https://eli.thegreenplace.net/2015/programmatic-access-to-the-call-stack-in-c/
+#ifdef DET_LIBUNWIND
 Callstack Runtime::backtrace_libunwind()
 {
   Callstack cs;
@@ -226,6 +229,7 @@ Callstack Runtime::backtrace_libunwind()
 
   return cs; 
 }
+#endif
 
 Callstack Runtime::backtrace_glibc()
 {
@@ -243,7 +247,7 @@ Callstack Runtime::backtrace_glibc()
   for (i = 0; i < size; i++) {
      //std::printf ("%s\n", strings[i]);
      //std::printf ("%p\n", frames[i]);
-     unw_word_t f = (unw_word_t)frames[i];
+     uint64_t f = (uint64_t)frames[i];
      //std::printf ("0x%lx\n", f);
      cs.add_frame( f );
   }

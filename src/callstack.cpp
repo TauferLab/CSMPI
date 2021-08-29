@@ -3,7 +3,9 @@
 #include <cstdio>
 
 #define UNW_LOCAL_ONLY
-#include <libunwind.h>
+#ifdef DET_LIBUNWIND
+  #include <libunwind.h>
+#endif
 
 #include "callstack.hpp"
 
@@ -24,12 +26,12 @@ bool Callstack::operator==(const Callstack& rhs) const
   return true;
 }
 
-void Callstack::add_frame( unw_word_t frame )
+void Callstack::add_frame( uint64_t frame )
 {
   frames.push_back(frame);
 }
   
-std::vector<unw_word_t> Callstack::get_frames() const
+std::vector<uint64_t> Callstack::get_frames() const
 {
   return this->frames;
 }
