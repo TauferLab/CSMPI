@@ -9,6 +9,14 @@
 
 #include "callstack.hpp"
 
+namespace detail {
+#ifdef DET_LIBUNWIND
+  using csmpi_word_t = unw_word_t;
+#else
+  using csmpi_word_t = uint64_t;
+#endif
+}
+
 bool Callstack::operator==(const Callstack& rhs) const
 {
   auto lhs_n_frames = this->frames.size();
@@ -26,12 +34,12 @@ bool Callstack::operator==(const Callstack& rhs) const
   return true;
 }
 
-void Callstack::add_frame( uint64_t frame )
+void Callstack::add_frame( detail::csmpi_word_t frame )
 {
   frames.push_back(frame);
 }
   
-std::vector<uint64_t> Callstack::get_frames() const
+std::vector<detail::csmpi_word_t> Callstack::get_frames() const
 {
   return this->frames;
 }

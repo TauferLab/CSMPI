@@ -26,6 +26,14 @@
 #include <execinfo.h>
 #define GCLIB_BACKTRACE_MAX_FRAMES 64
 
+namespace detail {
+#ifdef DET_LIBUNWIND
+  using csmpi_word_t = unw_word_t;
+#else
+  using csmpi_word_t = uint64_t;
+#endif
+}
+
 Runtime* csmpi_init( Runtime* runtime_ptr ) 
 {
   int mpi_rc, rank;
@@ -247,7 +255,7 @@ Callstack Runtime::backtrace_glibc()
   for (i = 0; i < size; i++) {
      //std::printf ("%s\n", strings[i]);
      //std::printf ("%p\n", frames[i]);
-     uint64_t f = (uint64_t)frames[i];
+     detail::csmpi_word_t f = (detail::csmpi_word_t)frames[i];
      //std::printf ("0x%lx\n", f);
      cs.add_frame( f );
   }
