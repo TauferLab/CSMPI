@@ -38,9 +38,9 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 {
   int mpi_rc, rank;
   mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-  if ( rank == 0 ) {
-    std::cout << "CSMPI Runtime starting up..." << std::endl;
-  }
+  //if ( rank == 0 ) {
+    std::cout << "CSMPI Runtime starting up on rank " << rank << "..." << std::endl;
+  //}
   mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
 
   // Get CSMPI environment variable values

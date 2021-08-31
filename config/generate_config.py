@@ -21,8 +21,9 @@ default_mpi_fns = [ "MPI_Send",
                     "MPI_Testsome",
                     "MPI_Testall",
                     "MPI_Probe",
-                    "MPI_Iprobe" 
-                  ]
+                    "MPI_Iprobe", 
+                    "MPI_Barrier"
+                    ]
 
 
 def main( output, 
