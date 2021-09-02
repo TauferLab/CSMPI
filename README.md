@@ -33,3 +33,12 @@ Callstack tracing can impose large runtime overheads. Hence you should:
 * CMake
 * JSON for Modern C++ (https://github.com/nlohmann/json)
 * Boost (Serialization, MPI)
+* libunwind (Optional)
+
+## Copyright and License:
+
+Copyright (c) 2021, Global Computing Lab
+
+ANACIN-X is distributed under terms of the [Apache License, Version 2.0](http://www.apache.org/licenses/LICENSE-2.0) with LLVM Exceptions.
+
+See [LICENSE](https://github.com/TauferLab/Src_CSMPI/blob/main/LICENSE) for more details.
