@@ -103,7 +103,7 @@ bool Runtime::should_trace(std::string fn_name) const {
   auto search = fn_to_freq.find(fn_name);
   if (search != fn_to_freq.end()) {
     // If the tracing frequency is set to 0, trace every call
-    if (fn_to_freq.at(fn_name)) {
+    if ( fn_to_freq.at(fn_name) == 0 ) {
       return true;
     } 
     else {
@@ -135,11 +135,11 @@ void Runtime::trace_callstack( std::string fn_name )
 #ifdef DET_LIBUNWIND
     if ( impl == "libunwind" ) {
       cs = backtrace_libunwind();
-    } 
-    else if ( impl == "glibc" ) {
+    }
+#endif 
+    if ( impl == "glibc" ) {
       cs = backtrace_glibc();
     }
-#endif
 
     // Update table of known callstacks
     size_t curr_callstack_id;
