@@ -22,6 +22,18 @@ calls to certain MPI functions; CSMPI can help you find out.
   * libunwind 
   * glibc backtrace. 
 
+By default, CSMPI is set to build using glibc.  However, you can change CSMPI to build using libunwind by changing the following line in the file 'one\_step\_build.sh':
+
+```
+cmake -DUSE_LIBUNWIND=OFF ..
+```
+
+to instead use '-DUSE\_LIBUNWIND=ON'. To use libunwind, the line should look like the following:
+
+```
+cmake -DUSE_LIBUNWIND=ON ..
+```
+
 ## Tracing Overhead:
 Callstack tracing can impose large runtime overheads. Hence you should:
 * Use the glibc backtrace configuration rather than libunwind if possible
