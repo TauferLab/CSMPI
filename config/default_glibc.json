@@ -13,7 +13,7 @@
         { "name" : "MPI_Testsome", "freq" : 0},
         { "name" : "MPI_Testall", "freq" : 0}
     ],
-    "trace_dir" : "/p/lscratchh/chapp1/csmpi_testing/csmpi_traces/",
+    "trace_dir" : "null",
     "backtrace_impl" : "glibc",
     "trace_unmatched" : false,
     "demangle_in_place" : false,
