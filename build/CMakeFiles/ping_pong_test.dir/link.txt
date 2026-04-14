@@ -1,0 +1,1 @@
+/opt/spack/var/spack/environments/anacin_spack_env/.spack-env/view/bin/mpicxx     CMakeFiles/ping_pong_test.dir/test/ping_pong.cpp.o  -o ping_pong_test 

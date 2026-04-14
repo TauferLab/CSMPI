@@ -11,7 +11,11 @@
         { "name" : "MPI_Test", "freq" : 0},
         { "name" : "MPI_Testany", "freq" : 0},
         { "name" : "MPI_Testsome", "freq" : 0},
-        { "name" : "MPI_Testall", "freq" : 0}
+        { "name" : "MPI_Testall", "freq" : 0},
+        { "name" : "MPI_MPI_Reduce", "freq" : 0},
+        { "name" : "MPI_Allreduce", "freq" : 0},
+        { "name" : "MPI_Bcast", "freq" : 0},
+        { "name" : "MPI_Barrier", "freq" : 0}
     ],
     "trace_dir" : "null",
     "backtrace_impl" : "glibc",

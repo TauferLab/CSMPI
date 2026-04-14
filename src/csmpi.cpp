@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <iostream>
 
 #ifndef _EXTERN_C_
 #ifdef __cplusplus
@@ -36,14 +37,9 @@ _EXTERN_C_ int MPI_Init(int *arg_0, char ***arg_1) {
     int _wrap_py_return_val = 0;
  
 {
+    std::cout<<"CSMPI Init called"<<std::endl;
   _wrap_py_return_val = PMPI_Init(arg_0, arg_1);
   runtime_ptr = csmpi_init( runtime_ptr );
-  
-  int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (rank == 0) {
-    runtime_ptr->print();
-  }
   //runtime_ptr->start_timer();
 }
     return _wrap_py_return_val;
@@ -55,13 +51,9 @@ _EXTERN_C_ int MPI_Init_thread(int *arg_0, char ***arg_1, int arg_2, int *arg_3)
     int _wrap_py_return_val = 0;
  
 {
+    
   _wrap_py_return_val = PMPI_Init_thread(arg_0, arg_1, arg_2, arg_3);
   runtime_ptr = csmpi_init( runtime_ptr );
-  int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  if (rank == 0) {
-    runtime_ptr->print();
-  }
   //runtime_ptr->start_timer();
 }
     return _wrap_py_return_val;
@@ -75,7 +67,7 @@ _EXTERN_C_ int MPI_Finalize() {
 {
   //runtime_ptr->stop_timer();
   int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  mpi_rc = PMPI_Comm_rank(MPI_COMM_WORLD, &rank);
   if (rank == 0) {
     runtime_ptr->print();
   }
@@ -191,6 +183,7 @@ _EXTERN_C_ int MPI_Recv(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, i
     int _wrap_py_return_val = 0;
 {
   _wrap_py_return_val = PMPI_Recv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  if(runtime_ptr)
   runtime_ptr->trace_callstack( "MPI_Recv" );
 }
     return _wrap_py_return_val;
@@ -430,15 +423,18 @@ _EXTERN_C_ int MPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_S
 //}
 //
 ///* ================== C Wrappers for MPI_Allreduce ================== */
-//_EXTERN_C_ int PMPI_Allreduce(void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
-//_EXTERN_C_ int MPI_Allreduce(void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
-//}
-//    return _wrap_py_return_val;
-//}
+_EXTERN_C_ int PMPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
+_EXTERN_C_ int MPI_Allreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Allreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  if(runtime_ptr)
+  runtime_ptr->trace_callstack( "MPI_Allreduce" );
+  // FIXME!!! Add call to store info
+}
+    return _wrap_py_return_val;
+}
 //
 ///* ================== C Wrappers for MPI_Alltoall ================== */
 //_EXTERN_C_ int PMPI_Alltoall(void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6);
@@ -496,26 +492,33 @@ _EXTERN_C_ int MPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_S
 //}
 //
 ///* ================== C Wrappers for MPI_Barrier ================== */
-//_EXTERN_C_ int PMPI_Barrier(MPI_Comm arg_0);
-//_EXTERN_C_ int MPI_Barrier(MPI_Comm arg_0) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Barrier(arg_0);
-//}
-//    return _wrap_py_return_val;
-//}
+_EXTERN_C_ int PMPI_Barrier(MPI_Comm arg_0);
+_EXTERN_C_ int MPI_Barrier(MPI_Comm arg_0) { 
+    int _wrap_py_return_val = 0;
+
+{
+  /*if (runtime_ptr == nullptr){
+    runtime_ptr = csmpi_init( runtime_ptr );
+  }*/
+  _wrap_py_return_val = PMPI_Barrier(arg_0);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Barrier" );
+}
+    return _wrap_py_return_val;
+}
 //
 ///* ================== C Wrappers for MPI_Bcast ================== */
-//_EXTERN_C_ int PMPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4);
-//_EXTERN_C_ int MPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Bcast(arg_0, arg_1, arg_2, arg_3, arg_4);
-//}
-//    return _wrap_py_return_val;
-//}
+_EXTERN_C_ int PMPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4);
+_EXTERN_C_ int MPI_Bcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Bcast(arg_0, arg_1, arg_2, arg_3, arg_4);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Bcast" );
+}
+    return _wrap_py_return_val;
+}
 //
 
 ///* ================== C Wrappers for MPI_Bsend_init ================== */
@@ -1930,15 +1933,17 @@ _EXTERN_C_ int MPI_Iprobe(int arg_0, int arg_1, MPI_Comm arg_2, int *flag, MPI_S
 //}
 //
 ///* ================== C Wrappers for MPI_Reduce ================== */
-//_EXTERN_C_ int PMPI_Reduce(void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6);
-//_EXTERN_C_ int MPI_Reduce(void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6) { 
-//    int _wrap_py_return_val = 0;
-// 
-//{
-//  _wrap_py_return_val = PMPI_Reduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
-//}
-//    return _wrap_py_return_val;
-//}
+_EXTERN_C_ int PMPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6);
+_EXTERN_C_ int MPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6) { 
+    int _wrap_py_return_val = 0;
+ 
+{
+  _wrap_py_return_val = PMPI_Reduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  if(runtime_ptr)
+  runtime_ptr->trace_callstack( "MPI_Reduce" );
+}
+    return _wrap_py_return_val;
+}
 //
 ///* ================== C Wrappers for MPI_Reduce_scatter ================== */
 //_EXTERN_C_ int PMPI_Reduce_scatter(void *arg_0, void *arg_1, int *arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);

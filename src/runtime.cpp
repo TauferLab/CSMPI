@@ -29,11 +29,11 @@
 Runtime* csmpi_init( Runtime* runtime_ptr ) 
 {
   int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
   if ( rank == 0 ) {
     std::cout << "CSMPI Runtime starting up..." << std::endl;
   }
-  mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
+  mpi_rc = PMPI_Barrier( MPI_COMM_WORLD );
 
   // Get CSMPI environment variable values
   char* csmpi_config_var = std::getenv( "CSMPI_CONFIG" );
@@ -47,6 +47,8 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
   // Set up CSMPI trace directory
   mkdir( config.get_trace_dir().c_str(), S_IRWXU ); 
 
+
+
   // Create CSMPI runtime object
   return new Runtime( config );
 }
@@ -54,17 +56,17 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 void csmpi_finalize( Runtime* runtime_ptr )
 {
   runtime_ptr->write_trace();
-  int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  /*int mpi_rc, rank;
+  mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
   double send_buffer[2] = { runtime_ptr->get_backtrace_elapsed_time(), runtime_ptr->get_write_log_elapsed_time() };
   double recv_buffer[2] = { 0.0, 0.0 };
-  mpi_rc = MPI_Reduce( &send_buffer, &recv_buffer, 2, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD );
+  mpi_rc = PMPI_Reduce( &send_buffer, &recv_buffer, 2, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD );
   if ( rank == 0 ) {
     std::cout << "Backtrace total elapsed time: " << recv_buffer[0] << std::endl;
     std::cout << "Write log total elapsed time: " << recv_buffer[1] << std::endl;
     std::cout << "CSMPI Runtime shutting down..." << std::endl;
   }
-  mpi_rc = MPI_Barrier( MPI_COMM_WORLD );
+  mpi_rc = PMPI_Barrier( MPI_COMM_WORLD );*/
   delete runtime_ptr;
 }
 
@@ -262,7 +264,7 @@ void Runtime::write_trace()
   auto start_time = std::chrono::steady_clock::now();
   // Open a trace file for this rank
   int mpi_rc, rank;
-  mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
   std::string trace_file_path = config.get_trace_dir() + "/rank_" + std::to_string(rank) + ".csmpi";
   FILE* trace_file = std::fopen( trace_file_path.c_str(), "w" );
   // Iterate over function call types
@@ -292,10 +294,10 @@ void Runtime::write_trace()
 void Runtime::print() const
 {
   int mpi_rc, flag;
-  mpi_rc = MPI_Initialized( &flag );
+  mpi_rc = PMPI_Initialized( &flag );
   if ( flag ) {
     int rank;
-    mpi_rc = MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+    mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
     std::cout << "Rank: " << rank << " CSMPI Runtime State:" << std::endl;
   }
   std::cout << "Counts of function calls observed so far:" << std::endl;
