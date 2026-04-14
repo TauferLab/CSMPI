@@ -1,0 +1,4 @@
+/home/exouser/ANACIN-X/submodules/CSMPI/build/CMakeFiles/rebuild_cache.dir
+/home/exouser/ANACIN-X/submodules/CSMPI/build/CMakeFiles/edit_cache.dir
+/home/exouser/ANACIN-X/submodules/CSMPI/build/CMakeFiles/ping_pong_test.dir
+/home/exouser/ANACIN-X/submodules/CSMPI/build/CMakeFiles/csmpi.dir

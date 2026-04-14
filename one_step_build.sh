@@ -8,4 +8,5 @@ export CC=mpicc
 export CXX=mpicxx
 rm -rf $(pwd)/${build_dir} && mkdir -p $(pwd)/${build_dir} && cd ${build_dir}
 cmake -DUSE_LIBUNWIND=OFF ..
-make -j
+make -j &&
+../../../submodules/PnMPI/build/bin/pnmpi-patch libcsmpi.so ../../../anacin-x/pnmpi/patched_libs/libcsmpi.so
