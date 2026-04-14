@@ -56,7 +56,7 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 void csmpi_finalize( Runtime* runtime_ptr )
 {
   runtime_ptr->write_trace();
-  int mpi_rc, rank;
+  /*int mpi_rc, rank;
   mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
   double send_buffer[2] = { runtime_ptr->get_backtrace_elapsed_time(), runtime_ptr->get_write_log_elapsed_time() };
   double recv_buffer[2] = { 0.0, 0.0 };
@@ -66,7 +66,7 @@ void csmpi_finalize( Runtime* runtime_ptr )
     std::cout << "Write log total elapsed time: " << recv_buffer[1] << std::endl;
     std::cout << "CSMPI Runtime shutting down..." << std::endl;
   }
-  mpi_rc = PMPI_Barrier( MPI_COMM_WORLD );
+  mpi_rc = PMPI_Barrier( MPI_COMM_WORLD );*/
   delete runtime_ptr;
 }
 
