@@ -15,6 +15,15 @@
 
 #include <sys/stat.h>
 
+// ======== BEGIN: glibc sym table construction additions ========
+#include <link.h>      // dl_iterate_phdr, dl_phdr_info
+#include <elf.h>       // Elf64_Ehdr, Elf64_Shdr, Elf64_Sym, ELF64_ST_TYPE, STT_FUNC
+#include <fcntl.h>     // open, O_RDONLY
+#include <sys/mman.h>  // mmap, munmap, PROT_READ, MAP_PRIVATE
+#include <unistd.h>    // close
+#include <map>
+// ======== END: glibc sym table construction additions ========
+
 // Callstack tracing via libunwind
 #define UNW_LOCAL_ONLY
 #ifdef DET_LIBUNWIND
@@ -55,6 +64,12 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 
 void csmpi_finalize( Runtime* runtime_ptr )
 {
+  // ======== BEGIN: glibc sym table construction additions ========
+  if ( runtime_ptr->get_write_symtab() ) {
+    runtime_ptr->build_symtab();
+    runtime_ptr->write_symtab();
+  }
+  // ======== END: glibc sym table construction additions ========
   runtime_ptr->write_trace();
   /*int mpi_rc, rank;
   mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
@@ -289,6 +304,150 @@ void Runtime::write_trace()
   std::chrono::duration<double> elapsed_time = stop_time - start_time;
   this->m_write_log_elapsed_time = elapsed_time.count();
 }
+
+// ======== BEGIN: glibc sym table construction additions ========
+
+// dl_iterate_phdr callback: fired once per loaded ELF object (main exe + every .so).
+// Opens the object's file on disk, parses its ELF section headers to find .symtab
+// (static symbols) and .dynsym (exported symbols), and inserts each defined FUNC
+// symbol into addr_to_name keyed by its runtime virtual address (bias + st_value).
+// Two passes ensure .symtab entries win over .dynsym for the same address, since
+// .symtab is richer (includes internal/static functions not present in .dynsym).
+static int build_symtab_callback( struct dl_phdr_info* info, size_t size, void* data )
+{
+  auto& addr_to_name = *static_cast<std::map<uint64_t, std::string>*>( data );
+
+  // dlpi_name is empty for the main executable; /proc/self/exe is always valid
+  const char* path = ( info->dlpi_name[0] == '\0' ) ? "/proc/self/exe"
+                                                     : info->dlpi_name;
+  uint64_t bias = (uint64_t)info->dlpi_addr;
+
+  // Open and mmap the ELF file — the dynamic linker only loaded LOAD segments
+  // into memory, so section headers (.symtab, .dynsym) must be read from disk
+  int fd = open( path, O_RDONLY );
+  if ( fd < 0 ) return 0;
+
+  struct stat st;
+  if ( fstat( fd, &st ) < 0 ) { close( fd ); return 0; }
+  size_t file_size = (size_t)st.st_size;
+  if ( file_size < sizeof( Elf64_Ehdr ) ) { close( fd ); return 0; }
+
+  void* map = mmap( nullptr, file_size, PROT_READ, MAP_PRIVATE, fd, 0 );
+  close( fd );
+  if ( map == MAP_FAILED ) return 0;
+
+  const uint8_t*    base = static_cast<const uint8_t*>( map );
+  const Elf64_Ehdr* ehdr = static_cast<const Elf64_Ehdr*>( map );
+
+  // Validate ELF magic and class — skip 32-bit objects (Elf32_Sym has different layout)
+  if ( ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
+       ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+       ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
+       ehdr->e_ident[EI_MAG3] != ELFMAG3 ||
+       ehdr->e_ident[EI_CLASS] != ELFCLASS64 ) {
+    munmap( map, file_size );
+    return 0;
+  }
+
+  // Bounds check the section header table before treating it as an array
+  if ( ehdr->e_shoff == 0 || ehdr->e_shnum == 0 ||
+       ehdr->e_shoff + (uint64_t)ehdr->e_shnum * sizeof( Elf64_Shdr ) > file_size ) {
+    munmap( map, file_size );
+    return 0;
+  }
+
+  const Elf64_Shdr* shdrs = reinterpret_cast<const Elf64_Shdr*>( base + ehdr->e_shoff );
+
+  // Two passes: SHT_SYMTAB first, SHT_DYNSYM second.
+  // emplace() never overwrites, so .symtab entries take priority.
+  for ( int pass = 0; pass < 2; pass++ ) {
+    Elf64_Word target_type = ( pass == 0 ) ? SHT_SYMTAB : SHT_DYNSYM;
+
+    for ( int i = 0; i < ehdr->e_shnum; i++ ) {
+      const Elf64_Shdr& shdr = shdrs[i];
+      if ( shdr.sh_type != target_type ) continue;
+      if ( shdr.sh_entsize == 0 )         continue;
+
+      // sh_link for a symbol table section is the index of its string table
+      if ( shdr.sh_link >= ehdr->e_shnum ) continue;
+      const Elf64_Shdr& strtab_shdr = shdrs[shdr.sh_link];
+
+      // Bounds check both sections within the mmap'd file
+      if ( shdr.sh_offset + shdr.sh_size > file_size )                continue;
+      if ( strtab_shdr.sh_offset + strtab_shdr.sh_size > file_size )  continue;
+
+      const Elf64_Sym* syms       = reinterpret_cast<const Elf64_Sym*>( base + shdr.sh_offset );
+      const char*      strtab     = reinterpret_cast<const char*>( base + strtab_shdr.sh_offset );
+      size_t           strtab_size = strtab_shdr.sh_size;
+      size_t           sym_count   = shdr.sh_size / shdr.sh_entsize;
+
+      for ( size_t j = 0; j < sym_count; j++ ) {
+        const Elf64_Sym& sym = syms[j];
+
+        // Only defined function symbols — skip imports, data, and the null entry
+        if ( ELF64_ST_TYPE( sym.st_info ) != STT_FUNC ) continue;
+        if ( sym.st_value == 0 )                          continue;
+        if ( sym.st_shndx == SHN_UNDEF )                 continue;
+        if ( sym.st_name  >= strtab_size )               continue;
+
+        // runtime address = ASLR load bias + ELF virtual address
+        uint64_t    runtime_addr = bias + sym.st_value;
+        const char* raw_name     = strtab + sym.st_name;
+
+        // Demangle C++ names; fall back to raw mangled name on failure
+        std::string name;
+        int   status;
+        char* demangled = abi::__cxa_demangle( raw_name, nullptr, nullptr, &status );
+        if ( status == 0 && demangled != nullptr ) {
+          name = demangled;
+          std::free( demangled );
+        } else {
+          name = raw_name;
+        }
+
+        addr_to_name.emplace( runtime_addr, std::move( name ) );
+      }
+    }
+  }
+
+  munmap( map, file_size );
+  return 0;  // 0 = continue iterating over remaining loaded objects
+}
+
+bool Runtime::get_write_symtab() const
+{
+  return this->config.get_write_symtab();
+}
+
+void Runtime::build_symtab()
+{
+  dl_iterate_phdr( build_symtab_callback, &addr_to_name );
+}
+
+void Runtime::write_symtab()
+{
+  int mpi_rc, rank;
+  mpi_rc = PMPI_Comm_rank( MPI_COMM_WORLD, &rank );
+  std::string symtab_path = config.get_trace_dir() + "/rank_" + std::to_string( rank ) + ".symtab";
+  FILE* f = std::fopen( symtab_path.c_str(), "w" );
+  for ( auto& kv : addr_to_name ) {
+    std::fprintf( f, "0x%lx\t%s\n", kv.first, kv.second.c_str() );
+  }
+  std::fclose( f );
+}
+
+// Nearest-symbol lookup: frame addresses are return addresses (mid-function),
+// so we find the largest known symbol start address <= the queried address.
+std::string Runtime::lookup_symbol( uint64_t addr ) const
+{
+  if ( addr_to_name.empty() ) return "";
+  auto it = addr_to_name.upper_bound( addr );  // first entry > addr
+  if ( it == addr_to_name.begin() ) return "";  // addr below all known symbols
+  --it;
+  return it->second;
+}
+
+// ======== END: glibc sym table construction additions ========
 
 // Convenience function to print the current state of the CSMPI runtime
 void Runtime::print() const
