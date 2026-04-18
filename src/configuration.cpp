@@ -32,6 +32,7 @@ Configuration::Configuration( const std::string config_file_path )
   trace_unmatched = config_json["trace_unmatched"];
   demangle_in_place = config_json["demangle_in_place"];
   translate_in_place = config_json["translate_in_place"];
+  write_symtab = config_json["write_symtab"];
 }
 
 void broadcast_config( Configuration& config ) 
@@ -70,7 +71,8 @@ Configuration& Configuration::operator=( const Configuration& rhs )
   this->backtrace_impl     = rhs.get_backtrace_impl();
   this->demangle_in_place  = rhs.get_demangle_in_place();
   this->translate_in_place = rhs.get_translate_in_place();
-  this->trace_unmatched     = rhs.get_trace_unmatched();
+  this->trace_unmatched    = rhs.get_trace_unmatched();
+  this->write_symtab       = rhs.get_write_symtab();
   return *this;
 }
 
@@ -104,6 +106,11 @@ bool Configuration::get_translate_in_place() const
   return this->translate_in_place;
 }
 
+bool Configuration::get_write_symtab() const
+{
+  return this->write_symtab;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void Configuration::print() const
@@ -123,5 +130,7 @@ void Configuration::print() const
   std::cout << "Demangle C++ Function Names in Place? " << demangle_in_place
             << std::endl;
   std::cout << "Translate Return Addresses in Place? " << translate_in_place
+            << std::endl;
+  std::cout << "Write Per-Rank Symbol Table? " << write_symtab
             << std::endl;
 }

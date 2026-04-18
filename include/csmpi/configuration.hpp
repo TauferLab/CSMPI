@@ -22,6 +22,7 @@ public:
   bool get_demangle_in_place() const;
   bool get_translate_in_place() const;
   bool get_trace_unmatched() const;
+  bool get_write_symtab() const;
   void print() const;
 private:
   // Mapping from MPI function names to call-stack sampling frequency
@@ -37,9 +38,12 @@ private:
   bool trace_unmatched = false;
   // Flag for whether to demangle C++ function names at runtime
   bool demangle_in_place = false;
-  // Flag for wether to translate return addresses to human-readable function 
+  // Flag for wether to translate return addresses to human-readable function
   // names, line numbers etc. at runtime
   bool translate_in_place = false;
+  // Flag for whether to build and write a per-rank symbol table from the
+  // process's loaded ELF objects for post-processing address resolution
+  bool write_symtab = false;
 
   // Serialization helper for broadcast 
   friend class boost::serialization::access;
@@ -52,6 +56,7 @@ private:
     archive & trace_unmatched;
     archive & demangle_in_place;
     archive & translate_in_place;
+    archive & write_symtab;
   }
 };
 

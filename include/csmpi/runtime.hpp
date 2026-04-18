@@ -9,6 +9,11 @@
 #include <unordered_map>
 #include <chrono>
 
+// ======== BEGIN: glibc sym table construction additions ========
+#include <map>
+#include <link.h>
+// ======== END: glibc sym table construction additions ========
+
 class Runtime
 {
 public:
@@ -21,6 +26,12 @@ public:
   Callstack backtrace_glibc();
   void write_trace();
   void print() const;
+  // ======== BEGIN: glibc sym table construction additions ========
+  void build_symtab();
+  void write_symtab();
+  std::string lookup_symbol( uint64_t addr ) const;
+  bool get_write_symtab() const;
+  // ======== END: glibc sym table construction additions ========
   double get_backtrace_elapsed_time() const;
   double get_write_log_elapsed_time() const;
   bool should_trace(std::string fn_name) const;
@@ -35,6 +46,11 @@ private:
   std::unordered_map<std::string, std::vector< std::pair<size_t, size_t> > > fn_to_callstack_id_seq;
   double m_backtrace_elapsed_time{0};
   double m_write_log_elapsed_time{0};
+  // ======== BEGIN: glibc sym table construction additions ========
+  // Ordered map required for nearest-symbol lookup via upper_bound:
+  // captured frame addresses are return addresses (mid-function), not entry points
+  std::map<uint64_t, std::string> addr_to_name;
+  // ======== END: glibc sym table construction additions ========
 };
 
 Runtime* csmpi_init( Runtime* runtime_ptr );
