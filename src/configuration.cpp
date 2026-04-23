@@ -32,7 +32,10 @@ Configuration::Configuration( const std::string config_file_path )
   trace_unmatched = config_json["trace_unmatched"];
   demangle_in_place = config_json["demangle_in_place"];
   translate_in_place = config_json["translate_in_place"];
-  write_symtab = config_json["write_symtab"];
+  auto write_symtab_itr = config_json.find("write_symtab");
+  if ( write_symtab_itr != config_json.end() && !write_symtab_itr->is_null() ) {
+    write_symtab = *write_symtab_itr;
+  }
 }
 
 void broadcast_config( Configuration& config ) 

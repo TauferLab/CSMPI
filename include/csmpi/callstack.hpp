@@ -6,6 +6,8 @@
   #include <libunwind.h>
 #endif
 
+#include <cstdint>
+#include <vector>
 #include "boost/functional/hash.hpp"
 
 class Callstack
