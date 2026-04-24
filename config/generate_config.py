@@ -34,7 +34,8 @@ def main( output,
           backtrace_impl,
           trace_unmatched, 
           translate_in_place, 
-          demangle_in_place ):
+          demangle_in_place,
+          write_symtab ):
     # Use default functions (see above "default_mpi_fns") and set sampling
     # frequency to max (i.e., trace every call) if no function_to_frequency
     # file is provided
@@ -53,6 +54,7 @@ def main( output,
     config["trace_unmatched"] = trace_unmatched
     config["translate_in_place"] = translate_in_place
     config["demangle_in_place"] = demangle_in_place
+    config["write_symtab"] = write_symtab
     with open( output, "w" ) as outfile:
         json.dump( config, outfile, indent=4 )
 
@@ -75,6 +77,8 @@ if __name__ == "__main__":
                         help="CSMPI should translate addresses in call stacks at runtime")
     parser.add_argument("-m", "--demangle_in_place", default=False, action="store_true",
                         help="CSMPI should demangle function names at runtime")
+    parser.add_argument("-s", "--write_symtab", default=False, action="store_true",
+                        help="CSMPI should write a per-rank symbol table for post-processing")
     args = parser.parse_args()
 
     main( args.output, 
@@ -83,4 +87,5 @@ if __name__ == "__main__":
           args.backtrace_impl,
           args.trace_unmatched, 
           args.translate_in_place, 
-          args.demangle_in_place )
+          args.demangle_in_place,
+          args.write_symtab )
