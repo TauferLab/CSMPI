@@ -33,6 +33,7 @@ Configuration::Configuration( const std::string config_file_path )
   demangle_in_place = config_json["demangle_in_place"];
   translate_in_place = config_json["translate_in_place"];
   write_symtab = config_json["write_symtab"];
+  resolve_to_entry = config_json.value( "resolve_to_entry", false );
 }
 
 void broadcast_config( Configuration& config ) 
@@ -73,6 +74,7 @@ Configuration& Configuration::operator=( const Configuration& rhs )
   this->translate_in_place = rhs.get_translate_in_place();
   this->trace_unmatched    = rhs.get_trace_unmatched();
   this->write_symtab       = rhs.get_write_symtab();
+  this->resolve_to_entry   = rhs.get_resolve_to_entry();
   return *this;
 }
 
@@ -111,6 +113,11 @@ bool Configuration::get_write_symtab() const
   return this->write_symtab;
 }
 
+bool Configuration::get_resolve_to_entry() const
+{
+  return this->resolve_to_entry;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void Configuration::print() const
@@ -132,5 +139,7 @@ void Configuration::print() const
   std::cout << "Translate Return Addresses in Place? " << translate_in_place
             << std::endl;
   std::cout << "Write Per-Rank Symbol Table? " << write_symtab
+            << std::endl;
+  std::cout << "Resolve Frames to Function Entry Addresses? " << resolve_to_entry
             << std::endl;
 }

@@ -30,7 +30,9 @@ public:
   void build_symtab();
   void write_symtab();
   std::string lookup_symbol( uint64_t addr ) const;
+  uint64_t lookup_entry_addr( uint64_t addr ) const;
   bool get_write_symtab() const;
+  bool get_resolve_to_entry() const;
   // ======== END: glibc sym table construction additions ========
   double get_backtrace_elapsed_time() const;
   double get_write_log_elapsed_time() const;

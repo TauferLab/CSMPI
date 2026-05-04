@@ -23,6 +23,7 @@ public:
   bool get_translate_in_place() const;
   bool get_trace_unmatched() const;
   bool get_write_symtab() const;
+  bool get_resolve_to_entry() const;
   void print() const;
 private:
   // Mapping from MPI function names to call-stack sampling frequency
@@ -44,8 +45,12 @@ private:
   // Flag for whether to build and write a per-rank symbol table from the
   // process's loaded ELF objects for post-processing address resolution
   bool write_symtab = false;
+  // Flag for whether to translate each captured return address to its
+  // containing function's entry address before writing the trace, so that
+  // .csmpi entries exact-match keys in the per-rank symbol table
+  bool resolve_to_entry = false;
 
-  // Serialization helper for broadcast 
+  // Serialization helper for broadcast
   friend class boost::serialization::access;
   template<typename Archive>
   void serialize( Archive& archive, const unsigned int version )
@@ -57,6 +62,7 @@ private:
     archive & demangle_in_place;
     archive & translate_in_place;
     archive & write_symtab;
+    archive & resolve_to_entry;
   }
 };
 

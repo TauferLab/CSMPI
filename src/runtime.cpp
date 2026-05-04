@@ -65,8 +65,12 @@ Runtime* csmpi_init( Runtime* runtime_ptr )
 void csmpi_finalize( Runtime* runtime_ptr )
 {
   // ======== BEGIN: glibc sym table construction additions ========
-  if ( runtime_ptr->get_write_symtab() ) {
+  // Build the in-memory symbol table if either the user wants it persisted
+  // or the trace writer needs it for return-address -> entry-address resolution
+  if ( runtime_ptr->get_write_symtab() || runtime_ptr->get_resolve_to_entry() ) {
     runtime_ptr->build_symtab();
+  }
+  if ( runtime_ptr->get_write_symtab() ) {
     runtime_ptr->write_symtab();
   }
   // ======== END: glibc sym table construction additions ========
@@ -291,9 +295,15 @@ void Runtime::write_trace()
       auto callstack = id_to_callstack.at( idx_callstack_id_pair.second );
       // Print the index of the callstack (i.e., "this is the nth callstack"
       std::fprintf(trace_file, "%lu, ", idx); 
-      // Print the callstack itself 
+      // Print the callstack itself
+      // If resolve_to_entry is set, translate each captured return address to
+      // its containing function's entry address so .csmpi entries exact-match
+      // the keys in this rank's .symtab. Frames that fall outside the symtab
+      // (vDSO, gaps below the smallest known entry) pass through unchanged.
+      const bool resolve = config.get_resolve_to_entry();
       for ( auto frame : callstack.get_frames() ) {
-        std::fprintf(trace_file, "0x%lx ", frame);
+        uint64_t out = resolve ? lookup_entry_addr( frame ) : frame;
+        std::fprintf(trace_file, "0x%lx ", out);
       }
       std::fprintf(trace_file, "\n");
     }
@@ -419,6 +429,11 @@ bool Runtime::get_write_symtab() const
   return this->config.get_write_symtab();
 }
 
+bool Runtime::get_resolve_to_entry() const
+{
+  return this->config.get_resolve_to_entry();
+}
+
 void Runtime::build_symtab()
 {
   dl_iterate_phdr( build_symtab_callback, &addr_to_name );
@@ -445,6 +460,18 @@ std::string Runtime::lookup_symbol( uint64_t addr ) const
   if ( it == addr_to_name.begin() ) return "";  // addr below all known symbols
   --it;
   return it->second;
+}
+
+// Same nearest-match as lookup_symbol but returns the entry address itself.
+// On failure (empty symtab or addr below smallest entry) returns the input
+// unchanged so unresolved frames remain distinguishable in the written trace.
+uint64_t Runtime::lookup_entry_addr( uint64_t addr ) const
+{
+  if ( addr_to_name.empty() ) return addr;
+  auto it = addr_to_name.upper_bound( addr );
+  if ( it == addr_to_name.begin() ) return addr;
+  --it;
+  return it->first;
 }
 
 // ======== END: glibc sym table construction additions ========
