@@ -1,8 +1,12 @@
 file(REMOVE_RECURSE
   "CMakeFiles/csmpi.dir/src/callstack.cpp.o"
+  "CMakeFiles/csmpi.dir/src/callstack.cpp.o.d"
   "CMakeFiles/csmpi.dir/src/configuration.cpp.o"
+  "CMakeFiles/csmpi.dir/src/configuration.cpp.o.d"
   "CMakeFiles/csmpi.dir/src/csmpi.cpp.o"
+  "CMakeFiles/csmpi.dir/src/csmpi.cpp.o.d"
   "CMakeFiles/csmpi.dir/src/runtime.cpp.o"
+  "CMakeFiles/csmpi.dir/src/runtime.cpp.o.d"
   "libcsmpi.pdb"
   "libcsmpi.so"
 )

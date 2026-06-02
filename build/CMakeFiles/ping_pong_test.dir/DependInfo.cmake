@@ -1,15 +1,14 @@
+
+# Consider dependencies only in project.
+set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
+
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
-  "CXX"
   )
-# The set of files for implicit dependencies of each language:
-set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/exouser/ANACIN-X/submodules/CSMPI/test/ping_pong.cpp" "/home/exouser/ANACIN-X/submodules/CSMPI/build/CMakeFiles/ping_pong_test.dir/test/ping_pong.cpp.o"
-  )
-set(CMAKE_CXX_COMPILER_ID "GNU")
 
-# The include file search paths:
-set(CMAKE_CXX_TARGET_INCLUDE_PATH
+# The set of dependency files which are needed:
+set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/home/exouser/ANACIN-X/submodules/CSMPI/test/ping_pong.cpp" "CMakeFiles/ping_pong_test.dir/test/ping_pong.cpp.o" "gcc" "CMakeFiles/ping_pong_test.dir/test/ping_pong.cpp.o.d"
   )
 
 # Targets to which this target links.

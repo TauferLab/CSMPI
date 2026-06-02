@@ -24,7 +24,16 @@ default_mpi_fns = [ "MPI_Send",
                     "MPI_Iprobe",
                     "MPI_Allreduce",
                     "MPI_Reduce",
-                    "MPI_Bcast"
+                    "MPI_Bcast",
+                    "MPI_Ireduce",
+                    "MPI_Iallreduce",
+                    "MPI_Ibcast",
+                    "MPI_Igather",
+                    "MPI_Igatherv",
+                    "MPI_Iscatter",
+                    "MPI_Iscatterv",
+                    "MPI_Ialltoall",
+                    "MPI_Ialltoallv"
                   ]
 
 
