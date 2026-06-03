@@ -45,7 +45,7 @@
             "freq": 0
         },
         {
-            "name": "MPI_MPI_Reduce",
+            "name": "MPI_Reduce",
             "freq": 0
         },
         {
