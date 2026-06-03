@@ -1944,6 +1944,88 @@ _EXTERN_C_ int MPI_Reduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatyp
 }
     return _wrap_py_return_val;
 }
+
+/* ================== C Wrappers for nonblocking collectives ================== */
+_EXTERN_C_ int PMPI_Ireduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6, MPI_Request *arg_7);
+_EXTERN_C_ int MPI_Ireduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, int arg_5, MPI_Comm arg_6, MPI_Request *arg_7) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Ireduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Ireduce" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Iallreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5, MPI_Request *arg_6);
+_EXTERN_C_ int MPI_Iallreduce(const void *arg_0, void *arg_1, int arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5, MPI_Request *arg_6) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Iallreduce(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Iallreduce" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Ibcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4, MPI_Request *arg_5);
+_EXTERN_C_ int MPI_Ibcast(void *arg_0, int arg_1, MPI_Datatype arg_2, int arg_3, MPI_Comm arg_4, MPI_Request *arg_5) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Ibcast(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Ibcast" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Igather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7, MPI_Request *arg_8);
+_EXTERN_C_ int MPI_Igather(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7, MPI_Request *arg_8) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Igather(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Igather" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Igatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8, MPI_Request *arg_9);
+_EXTERN_C_ int MPI_Igatherv(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, const int *arg_4, const int *arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8, MPI_Request *arg_9) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Igatherv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Igatherv" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Iscatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7, MPI_Request *arg_8);
+_EXTERN_C_ int MPI_Iscatter(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, int arg_6, MPI_Comm arg_7, MPI_Request *arg_8) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Iscatter(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Iscatter" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Iscatterv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, int arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8, MPI_Request *arg_9);
+_EXTERN_C_ int MPI_Iscatterv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, int arg_5, MPI_Datatype arg_6, int arg_7, MPI_Comm arg_8, MPI_Request *arg_9) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Iscatterv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Iscatterv" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Ialltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6, MPI_Request *arg_7);
+_EXTERN_C_ int MPI_Ialltoall(const void *arg_0, int arg_1, MPI_Datatype arg_2, void *arg_3, int arg_4, MPI_Datatype arg_5, MPI_Comm arg_6, MPI_Request *arg_7) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Ialltoall(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Ialltoall" );
+  return _wrap_py_return_val;
+}
+
+_EXTERN_C_ int PMPI_Ialltoallv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, const int *arg_5, const int *arg_6, MPI_Datatype arg_7, MPI_Comm arg_8, MPI_Request *arg_9);
+_EXTERN_C_ int MPI_Ialltoallv(const void *arg_0, const int *arg_1, const int *arg_2, MPI_Datatype arg_3, void *arg_4, const int *arg_5, const int *arg_6, MPI_Datatype arg_7, MPI_Comm arg_8, MPI_Request *arg_9) {
+  int _wrap_py_return_val = 0;
+  _wrap_py_return_val = PMPI_Ialltoallv(arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7, arg_8, arg_9);
+  if(runtime_ptr)
+    runtime_ptr->trace_callstack( "MPI_Ialltoallv" );
+  return _wrap_py_return_val;
+}
 //
 ///* ================== C Wrappers for MPI_Reduce_scatter ================== */
 //_EXTERN_C_ int PMPI_Reduce_scatter(void *arg_0, void *arg_1, int *arg_2, MPI_Datatype arg_3, MPI_Op arg_4, MPI_Comm arg_5);
