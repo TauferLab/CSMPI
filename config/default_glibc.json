@@ -97,7 +97,7 @@
             "freq": 0
         }
     ],
-    "trace_dir": "null",
+    "trace_dir": ".",
     "backtrace_impl": "glibc",
     "trace_unmatched": false,
     "demangle_in_place": false,
