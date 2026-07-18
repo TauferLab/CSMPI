@@ -102,6 +102,6 @@
     "trace_unmatched": false,
     "demangle_in_place": false,
     "translate_in_place": false,
-    "write_symtab": false,
-    "resolve_to_entry": false
+    "write_symtab": true,
+    "resolve_to_entry": true
 }
